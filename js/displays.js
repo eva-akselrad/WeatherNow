@@ -234,7 +234,7 @@ const Displays = (() => {
         alerts.forEach((alert, i) => {
             const card = document.createElement('div');
             card.className = 'alert-card';
-            const desc = (alert.description || '').slice(0, 350) + ((alert.description || '').length > 350 ? '…' : '');
+            const desc = alert.description || '';
             card.innerHTML = `
               <div class="alert-card-header">
                 <span class="alert-card-title">⚠ ${alert.event || 'Weather Alert'}</span>

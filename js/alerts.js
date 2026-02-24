@@ -41,11 +41,26 @@ const AlertsManager = (() => {
     function buildScript(alert) {
         const title = alert.event || 'Severe Weather Alert';
         const area = alert.areaDesc || 'your area';
-        const desc = (alert.description || '').split('\n')[0].slice(0, 200);
+        const desc = alert.description || '';
         return `Attention! The National Weather Service has issued a ${title} for ${area}. ${desc}`;
     }
 
     // ── Show alert banner ──────────────────────────────────────────
+    function setBannerScroll(el) {
+        // Duplicate the text so translateX(-50%) creates a seamless loop
+        const orig = el.dataset.orig || el.textContent;
+        el.dataset.orig = orig;
+        el.textContent = orig + '     ' + orig;  // repeat with spacer
+        // Stop the animation if the text fits the container without scrolling
+        const container = el.parentElement;
+        if (container && el.scrollWidth / 2 <= container.clientWidth) {
+            el.classList.add('no-scroll');
+            el.textContent = orig;  // restore single copy if no scroll needed
+        } else {
+            el.classList.remove('no-scroll');
+        }
+    }
+
     function showBanner(alerts) {
         const banner = document.getElementById('alert-banner');
         const ticker = document.getElementById('alert-ticker');
@@ -58,6 +73,8 @@ const AlertsManager = (() => {
 
         const texts = alerts.map(a => `⚠ ${a.event} – ${a.areaDesc}`).join('   ·   ');
         ticker.textContent = texts;
+        // Let the DOM render the text before measuring for scroll
+        requestAnimationFrame(() => setBannerScroll(ticker));
         banner.classList.remove('hidden');
     }
 

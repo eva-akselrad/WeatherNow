@@ -2,4 +2,5 @@
 .gitattributes
 *.md
 node_modules
-generate-playlist.js
+nginx.conf
+"radar examples"
