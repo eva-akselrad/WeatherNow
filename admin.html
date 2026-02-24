@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeatherNow – Admin Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap"
+        rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0e1a;
+            --surface: #111827;
+            --card: #1a2235;
+            --card2: #1e2a40;
+            --accent: #3b82f6;
+            --accent2: #06b6d4;
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --text: #f0f4ff;
+            --muted: #94a3b8;
+            --border: rgba(59, 130, 246, .2);
+            --radius: 12px;
+        }
+
+        html,
+        body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* ── Login screen ────────────────────────────────────── */
+        #login-screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            z-index: 999;
+        }
+
+        .login-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 48px 44px;
+            width: 360px;
+            text-align: center;
+            box-shadow: 0 20px 80px rgba(0, 0, 0, .6);
+        }
+
+        .login-logo {
+            font-family: 'Orbitron', monospace;
+            font-size: .7rem;
+            font-weight: 900;
+            background: var(--accent);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-bottom: 24px;
+            letter-spacing: .06em;
+        }
+
+        .login-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--accent);
+        }
+
+        .login-sub {
+            font-size: .82rem;
+            color: var(--muted);
+            margin-bottom: 32px;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: .95rem;
+            outline: none;
+            margin-bottom: 16px;
+            transition: border-color .2s;
+        }
+
+        .login-box input:focus {
+            border-color: var(--accent);
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: filter .2s;
+        }
+
+        .login-box button:hover {
+            filter: brightness(1.15);
+        }
+
+        #login-error {
+            color: var(--danger);
+            font-size: .82rem;
+            margin-top: 10px;
+            min-height: 18px;
+        }
+
+        /* ── Main admin UI ──────────────────────────────────── */
+        #admin-ui {
+            display: none;
+            min-height: 100vh;
+            padding: 32px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        #admin-ui.visible {
+            display: block;
+        }
+
+        .admin-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .admin-brand {
+            font-family: 'Orbitron', monospace;
+            font-size: .65rem;
+            font-weight: 900;
+            background: var(--accent);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 6px;
+            letter-spacing: .05em;
+            flex-shrink: 0;
+        }
+
+        .admin-header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.3rem;
+            color: var(--accent2);
+            flex: 1;
+        }
+
+        .admin-status {
+            font-size: .78rem;
+            color: var(--muted);
+        }
+
+        #status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--danger);
+            margin-right: 6px;
+        }
+
+        #status-dot.ok {
+            background: #22c55e;
+        }
+
+        /* ── Composer card ──────────────────────────────────── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 18px;
+        }
+
+        .field-group label {
+            font-size: .82rem;
+            font-weight: 600;
+            color: var(--muted);
+        }
+
+        .field-group input,
+        .field-group textarea,
+        .field-group select {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: .92rem;
+            padding: 10px 14px;
+            outline: none;
+            transition: border-color .2s;
+        }
+
+        .field-group input:focus,
+        .field-group textarea:focus,
+        .field-group select:focus {
+            border-color: var(--accent);
+        }
+
+        .field-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Type selector */
+        .type-grid {
+            display: flex;
+            gap: 10px;
+        }
+
+        .type-btn {
+            flex: 1;
+            padding: 10px 8px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+            background: var(--card);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: .82rem;
+            font-weight: 700;
+            text-align: center;
+            transition: all .2s;
+        }
+
+        .type-btn:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .type-btn.active[data-val="info"] {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, .15);
+            color: var(--accent);
+        }
+
+        .type-btn.active[data-val="warning"] {
+            border-color: var(--warn);
+            background: rgba(245, 158, 11, .15);
+            color: var(--warn);
+        }
+
+        .type-btn.active[data-val="emergency"] {
+            border-color: var(--danger);
+            background: rgba(239, 68, 68, .15);
+            color: var(--danger);
+        }
+
+        /* Display selector */
+        .display-grid {
+            display: flex;
+            gap: 10px;
+        }
+
+        .display-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+            background: var(--card);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: .82rem;
+            font-weight: 700;
+            text-align: center;
+            transition: all .2s;
+        }
+
+        .display-btn:hover {
+            border-color: var(--accent2);
+            color: var(--text);
+        }
+
+        .display-btn.active {
+            border-color: var(--accent2);
+            background: rgba(6, 182, 212, .12);
+            color: var(--accent2);
+        }
+
+        .display-btn .disp-icon {
+            font-size: 1.4rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .display-btn .disp-name {
+            font-size: .75rem;
+        }
+
+        .display-btn .disp-desc {
+            font-size: .65rem;
+            color: var(--muted);
+            margin-top: 2px;
+            font-weight: 400;
+        }
+
+        .send-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #fff;
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            cursor: pointer;
+            transition: filter .2s, transform .1s;
+            margin-top: 4px;
+        }
+
+        .send-btn:hover {
+            filter: brightness(1.15);
+        }
+
+        .send-btn:active {
+            transform: scale(.98);
+        }
+
+        #send-feedback {
+            text-align: center;
+            font-size: .82rem;
+            margin-top: 10px;
+            min-height: 18px;
+        }
+
+        /* ── Active messages ─────────────────────────────────── */
+        #active-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .active-msg {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 16px;
+        }
+
+        .amsg-badge {
+            font-size: .65rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .amsg-badge-info {
+            background: rgba(59, 130, 246, .2);
+            color: var(--accent);
+        }
+
+        .amsg-badge-warning {
+            background: rgba(245, 158, 11, .2);
+            color: var(--warn);
+        }
+
+        .amsg-badge-emergency {
+            background: rgba(239, 68, 68, .2);
+            color: var(--danger);
+        }
+
+        .amsg-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .amsg-title {
+            font-size: .85rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .amsg-text {
+            font-size: .8rem;
+            color: var(--muted);
+        }
+
+        .amsg-del {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--muted);
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: .78rem;
+            flex-shrink: 0;
+            transition: all .2s;
+        }
+
+        .amsg-del:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .no-msgs {
+            color: var(--muted);
+            font-size: .85rem;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .clear-all-btn {
+            background: transparent;
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            border-radius: 8px;
+            padding: 8px 18px;
+            cursor: pointer;
+            font-size: .82rem;
+            font-weight: 600;
+            transition: background .2s;
+            margin-top: 4px;
+        }
+
+        .clear-all-btn:hover {
+            background: rgba(239, 68, 68, .1);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Login ── -->
+    <div id="login-screen">
+        <div class="login-box">
+            <div class="login-logo">WEATHER NOW</div>
+            <div class="login-title">Admin Panel</div>
+            <div class="login-sub">Enter your admin password to continue.</div>
+            <input type="password" id="pw-input" placeholder="Admin password" autocomplete="current-password" />
+            <button id="pw-btn">Sign In</button>
+            <div id="login-error"></div>
+        </div>
+    </div>
+
+    <!-- ── Admin UI ── -->
+    <div id="admin-ui">
+
+        <div class="admin-header">
+            <div class="admin-brand">WEATHER<br>NOW</div>
+            <h1>Admin Panel</h1>
+            <span class="admin-status"><span id="status-dot"></span><span id="status-text">Connecting…</span></span>
+        </div>
+
+        <!-- Composer -->
+        <div class="card">
+            <div class="card-title">📣 Send Announcement</div>
+
+            <div class="field-group">
+                <label>Message Type</label>
+                <div class="type-grid">
+                    <div class="type-btn active" data-val="info">ℹ Info</div>
+                    <div class="type-btn" data-val="warning">⚠ Warning</div>
+                    <div class="type-btn" data-val="emergency">🚨 Emergency</div>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label>Display Style</label>
+                <div class="display-grid">
+                    <div class="display-btn active" data-val="banner">
+                        <span class="disp-icon">📰</span>
+                        <div class="disp-name">Banner</div>
+                        <div class="disp-desc">Slide-in bar at top</div>
+                    </div>
+                    <div class="display-btn" data-val="popup">
+                        <span class="disp-icon">💬</span>
+                        <div class="disp-name">Popup</div>
+                        <div class="disp-desc">Full-screen overlay</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="field-group">
+                    <label>Title <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+                    <input type="text" id="msg-title" placeholder="e.g. Road Closure" maxlength="60" />
+                </div>
+                <div class="field-group">
+                    <label>Auto-dismiss after</label>
+                    <select id="msg-duration">
+                        <option value="0">Manual dismiss</option>
+                        <option value="15">15 seconds</option>
+                        <option value="30">30 seconds</option>
+                        <option value="60" selected>1 minute</option>
+                        <option value="120">2 minutes</option>
+                        <option value="300">5 minutes</option>
+                        <option value="600">10 minutes</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label>Message</label>
+                <textarea id="msg-text" placeholder="Type your announcement here…"></textarea>
+            </div>
+
+            <div class="field-group"
+                style="flex-direction:row;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:18px">
+                <input type="checkbox" id="msg-tts"
+                    style="width:18px;height:18px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer" />
+                <div style="flex:1">
+                    <label for="msg-tts" style="cursor:pointer;font-size:.88rem;font-weight:600;color:var(--text)">🔊
+                        Read aloud with TTS on display</label>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:2px">Speaks the message on the weather
+                        display. Music will be ducked while speaking.</div>
+                </div>
+            </div>
+
+            <button class="send-btn" id="send-btn">📡 SEND ANNOUNCEMENT</button>
+            <div id="send-feedback"></div>
+        </div>
+
+        <!-- Active messages -->
+        <div class="card">
+            <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+                <span>📋 Active Messages</span>
+                <button class="clear-all-btn" id="clear-all-btn">Clear All</button>
+            </div>
+            <div id="active-list">
+                <div class="no-msgs">No active messages</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        (function () {
+            const API = '/api';
+            let adminPassword = '';
+            let pollTimer = null;
+
+            // ── Login ──────────────────────────────────────────────────────
+            const loginScreen = document.getElementById('login-screen');
+            const adminUi = document.getElementById('admin-ui');
+            const pwInput = document.getElementById('pw-input');
+            const pwBtn = document.getElementById('pw-btn');
+            const loginError = document.getElementById('login-error');
+
+            async function tryLogin() {
+                const pw = pwInput.value.trim();
+                if (!pw) return;
+                try {
+                    const r = await fetch(`${API}/messages`, { headers: { 'x-admin-password': pw } });
+                    if (r.status === 401) { loginError.textContent = 'Wrong password.'; return; }
+                    adminPassword = pw;
+                    loginScreen.style.display = 'none';
+                    adminUi.classList.add('visible');
+                    startApp();
+                } catch {
+                    loginError.textContent = '⚠ Could not reach server.';
+                }
+            }
+            pwBtn.addEventListener('click', tryLogin);
+            pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+            // ── App ────────────────────────────────────────────────────────
+            const sendBtn = document.getElementById('send-btn');
+            const sendFeedback = document.getElementById('send-feedback');
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const activeList = document.getElementById('active-list');
+            const clearAllBtn = document.getElementById('clear-all-btn');
+
+            let selectedType = 'info';
+            let selectedDisplay = 'banner';
+
+            // ── Sent confirmation chime ────────────────────────────
+            function playChime() {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    [{ f: 880, t: 0 }, { f: 1047, t: 0.12 }, { f: 1319, t: 0.24 }].forEach(({ f, t }) => {
+                        const osc = ctx.createOscillator(), gain = ctx.createGain();
+                        osc.connect(gain); gain.connect(ctx.destination);
+                        osc.type = 'sine'; osc.frequency.value = f;
+                        const s = ctx.currentTime + t;
+                        gain.gain.setValueAtTime(0, s);
+                        gain.gain.linearRampToValueAtTime(0.2, s + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.001, s + 0.18);
+                        osc.start(s); osc.stop(s + 0.22);
+                    });
+                } catch { /* AudioContext not available */ }
+            }
+
+            function startApp() {
+                // Type buttons
+                document.querySelectorAll('.type-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        selectedType = btn.dataset.val;
+                    });
+                });
+
+                // Display buttons
+                document.querySelectorAll('.display-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.display-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        selectedDisplay = btn.dataset.val;
+                    });
+                });
+
+                // Send
+                sendBtn.addEventListener('click', sendAnnouncement);
+                clearAllBtn.addEventListener('click', clearAll);
+
+                checkHealth();
+                loadMessages();
+                pollTimer = setInterval(loadMessages, 5000);
+                setInterval(checkHealth, 15000);
+            }
+
+            async function sendAnnouncement() {
+                const text = document.getElementById('msg-text').value.trim();
+                if (!text) { feedback('⚠ Please enter a message.', '#f59e0b'); return; }
+
+                sendBtn.disabled = true;
+                try {
+                    const r = await fetch(`${API}/announce`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+                        body: JSON.stringify({
+                            text,
+                            title: document.getElementById('msg-title').value.trim(),
+                            type: selectedType,
+                            display: selectedDisplay,
+                            duration: parseInt(document.getElementById('msg-duration').value),
+                            tts: document.getElementById('msg-tts').checked
+                        })
+                    });
+                    if (!r.ok) throw new Error();
+                    playChime();
+                    feedback('✓ Sent!', '#22c55e');
+                    document.getElementById('msg-text').value = '';
+                    document.getElementById('msg-title').value = '';
+                    loadMessages();
+                } catch {
+                    feedback('⚠ Failed to send.', '#ef4444');
+                } finally {
+                    sendBtn.disabled = false;
+                }
+            }
+
+            async function loadMessages() {
+                try {
+                    const r = await fetch(`${API}/messages`, { headers: { 'x-admin-password': adminPassword } });
+                    const msgs = await r.json();
+                    renderMessages(msgs);
+                } catch { /* ignore */ }
+            }
+
+            function renderMessages(msgs) {
+                if (!msgs.length) {
+                    activeList.innerHTML = '<div class="no-msgs">No active messages</div>';
+                    return;
+                }
+                activeList.innerHTML = '';
+                [...msgs].reverse().forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = 'active-msg';
+                    const badge = { info: 'info', warning: 'warning', emergency: 'emergency' }[msg.type] || 'info';
+                    div.innerHTML = `
+                <span class="amsg-badge amsg-badge-${badge}">${msg.type}</span>
+                <div class="amsg-body">
+                    ${msg.title ? `<div class="amsg-title">${esc(msg.title)}</div>` : ''}
+                    <div class="amsg-text">${esc(msg.text)}</div>
+                    <div style="font-size:.65rem;color:var(--muted);margin-top:4px">
+                        ${msg.display === 'popup' ? '💬 Popup' : '📰 Banner'} ·
+                        ${msg.tts ? '🔊 TTS ·' : ''}
+                        ${msg.duration ? `${msg.duration}s` : 'Manual dismiss'} ·
+                        ${new Date(msg.created).toLocaleTimeString()}
+                    </div>
+                </div>
+                <button class="amsg-del" data-id="${msg.id}">✕ Delete</button>
+            `;
+                    div.querySelector('.amsg-del').addEventListener('click', () => deleteMsg(msg.id));
+                    activeList.appendChild(div);
+                });
+            }
+
+            async function deleteMsg(id) {
+                await fetch(`${API}/messages/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'x-admin-password': adminPassword }
+                });
+                loadMessages();
+            }
+
+            async function clearAll() {
+                if (!confirm('Clear all active messages?')) return;
+                await fetch(`${API}/messages`, {
+                    method: 'DELETE',
+                    headers: { 'x-admin-password': adminPassword }
+                });
+                loadMessages();
+            }
+
+            async function checkHealth() {
+                try {
+                    const r = await fetch(`${API}/health`);
+                    const ok = r.ok;
+                    statusDot.className = ok ? 'ok' : '';
+                    statusText.textContent = ok ? 'Server connected' : 'Server error';
+                } catch {
+                    statusDot.className = '';
+                    statusText.textContent = 'Server unreachable';
+                }
+            }
+
+            function feedback(msg, color) {
+                sendFeedback.style.color = color;
+                sendFeedback.textContent = msg;
+                setTimeout(() => { sendFeedback.textContent = ''; }, 4000);
+            }
+
+            function esc(s) {
+                return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+        })();
+    </script>
+</body>
+
+</html>

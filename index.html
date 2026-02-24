@@ -179,7 +179,18 @@
         <!-- ALERT BANNER (hidden unless active) -->
         <div id="alert-banner" class="alert-banner hidden">
             <span class="alert-icon">⚠</span>
-            <div id="alert-ticker" class="alert-ticker-text"></div>
+            <div class="banner-scroll-container">
+                <div id="alert-ticker" class="alert-ticker-text banner-scroll-text"></div>
+            </div>
+        </div>
+
+        <!-- ADMIN ANNOUNCEMENT BANNER (hidden unless admin sends one) -->
+        <div id="admin-announce-banner" class="admin-announce-banner hidden" data-type="info">
+            <span id="admin-announce-icon" class="admin-announce-icon">ℹ</span>
+            <div class="banner-scroll-container">
+                <div id="admin-announce-text" class="admin-announce-text banner-scroll-text">Message from admin</div>
+            </div>
+            <button class="admin-dismiss" title="Dismiss">✕</button>
         </div>
 
         <!-- SLIDE DISPLAY AREA -->
@@ -466,6 +477,7 @@
     <script src="js/radar.js"></script>
     <script src="js/displays.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/announcements.js"></script>
 </body>
 
 </html>

@@ -1,19 +1,20 @@
 # ─────────────────────────────────────────────────────────────────────
-#  WeatherNow – Dockerfile
-#  Serves the static app via nginx.  Music files live in /app/music and
-#  are mounted from the host so you can drop new tracks without rebuild.
+#  WeatherNow – Dockerfile (Node.js / Express)
 # ─────────────────────────────────────────────────────────────────────
-FROM nginx:1.27-alpine
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Install dependencies first (cached layer)
+COPY package*.json ./
+RUN npm install --omit=dev
 
 # Copy app source
-COPY . /usr/share/nginx/html/
+COPY . .
 
-# Drop the default nginx config and use ours
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Music folder – volume-mounted at runtime
+RUN mkdir -p /app/music
 
-# Music folder – expected to be volume-mounted at runtime
-# (see docker-compose.yml).  Create an empty dir so the image works
-# standalone too.
-RUN mkdir -p /usr/share/nginx/html/music
+EXPOSE 3000
 
-EXPOSE 80
+CMD ["node", "server.js"]

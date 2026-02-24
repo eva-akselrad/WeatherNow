@@ -6,18 +6,15 @@ services:
     container_name: weathernow
     restart: unless-stopped
     ports:
-      - "8080:80" # Change left side to expose on a different host port
+      - "8080:3000"
     volumes:
-      # Mount your local music folder so you can add/remove tracks without rebuild.
-      # Edit the left side to point at wherever your MP3s live on the host.
-      - ./music:/usr/share/nginx/html/music:ro
+      - ./music:/app/music:ro
     environment:
-      - TZ=America/New_York # Set your timezone for accurate clock display
-  # ── Optional: Cloudflare Tunnel sidecar ──────────────────────────
-  # Uncomment this block to expose the app publicly via a Cloudflare Tunnel
-  # without opening any firewall ports.  Requires a free Cloudflare account.
-  # See README.md → "Cloudflare Tunnel" for setup steps.
-  #
+      - TZ=America/New_York
+      # Change this before deploying!
+      - ADMIN_PASSWORD=weathernow
+      - PORT=3000
+  # ── Cloudflare Tunnel (uncomment to expose publicly) ──────────
   # cloudflared:
   #   image: cloudflare/cloudflared:latest
   #   container_name: weathernow-tunnel
