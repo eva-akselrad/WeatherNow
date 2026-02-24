@@ -45,6 +45,12 @@ app.get('/api/messages', (req, res) => {
     res.json(messages.filter(m => m.id > since));
 });
 
+// ── GET /api/verify  (login check) ────────────────────────────
+app.get('/api/verify', (req, res) => {
+    if (!checkAuth(req, res)) return;
+    res.json({ ok: true });
+});
+
 // ── POST /api/announce  (admin only) ──────────────────────────
 // Body: { password, text, type, display, duration, title }
 //   type:    'info' | 'warning' | 'emergency'

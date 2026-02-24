@@ -55,6 +55,12 @@ export async function onRequest({ request, env }) {
         return json(msgs.filter(m => m.id > since));
     }
 
+    // GET /api/verify
+    if (path === '/api/verify' && method === 'GET') {
+        if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+        return json({ ok: true });
+    }
+
     // POST /api/announce
     if (path === '/api/announce' && method === 'POST') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
