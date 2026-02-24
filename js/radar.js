@@ -159,7 +159,7 @@ const RadarMap = (() => {
 
         map = L.map('radar-map', {
             center: [lat, lon],
-            zoom: 4,
+            zoom: 10,
             zoomControl: true,
             attributionControl: true,
             scrollWheelZoom: true
