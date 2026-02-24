@@ -10,6 +10,15 @@ const AlertsManager = (() => {
     let isSpeaking = false;
     const synth = window.speechSynthesis;
 
+    // ── Returns set of suppressed event types from settings checkboxes ─
+    function getSuppressedTypes() {
+        const suppressed = new Set();
+        document.querySelectorAll('[data-tts-type]').forEach(cb => {
+            if (!cb.checked) suppressed.add(cb.dataset.ttsType);
+        });
+        return suppressed;
+    }
+
     // ── Preferred voice ────────────────────────────────────────────
     function getBestVoice() {
         const voices = synth.getVoices();
@@ -90,14 +99,20 @@ const AlertsManager = (() => {
 
         if (!newAlerts.length) return;
 
-        // Record IDs
+        // Filter out suppressed alert types
+        const suppressed = getSuppressedTypes();
+        const speakable = newAlerts.filter(a => !suppressed.has(a.event));
+
+        // Record IDs (all new alerts, even suppressed — don't re-announce later)
         newAlerts.forEach(a => {
             const id = a.id || a.event + (a.onset || '');
             lastAlertIds.add(id);
         });
 
+        if (!speakable.length) return;
+
         // Queue TTS announcements
-        const queue = newAlerts.slice(0, 3); // max 3 at once
+        const queue = speakable.slice(0, 3); // max 3 at once
         let qIdx = 0;
 
         function announceNext() {

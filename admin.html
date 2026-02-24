@@ -598,7 +598,7 @@
                 const pw = pwInput.value.trim();
                 if (!pw) return;
                 try {
-                    const r = await fetch(`${API}/messages`, { headers: { 'x-admin-password': pw } });
+                    const r = await fetch(`${API}/verify`, { headers: { 'x-admin-password': pw } });
                     if (r.status === 401) { loginError.textContent = 'Wrong password.'; return; }
                     adminPassword = pw;
                     loginScreen.style.display = 'none';

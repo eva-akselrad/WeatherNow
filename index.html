@@ -138,6 +138,30 @@
                     <span class="toggle-slider"></span>
                 </label>
             </div>
+
+            <!-- Per-type suppression -->
+            <p class="hint-text" style="margin-top:10px;margin-bottom:6px">Suppress TTS for specific alert types:</p>
+            <div class="checkbox-grid" id="tts-type-filters">
+                <label><input type="checkbox" data-tts-type="Special Weather Statement" /> Special Weather
+                    Statement</label>
+                <label><input type="checkbox" data-tts-type="Flood Watch" /> Flood Watch</label>
+                <label><input type="checkbox" data-tts-type="Flood Warning" /> Flood Warning</label>
+                <label><input type="checkbox" data-tts-type="Flood Advisory" /> Flood Advisory</label>
+                <label><input type="checkbox" data-tts-type="Winter Storm Watch" /> Winter Storm Watch</label>
+                <label><input type="checkbox" data-tts-type="Winter Storm Warning" /> Winter Storm
+                    Warning</label>
+                <label><input type="checkbox" data-tts-type="Winter Weather Advisory" /> Winter Weather
+                    Advisory</label>
+                <label><input type="checkbox" data-tts-type="Wind Advisory" /> Wind Advisory</label>
+                <label><input type="checkbox" data-tts-type="Dense Fog Advisory" /> Dense Fog Advisory</label>
+                <label><input type="checkbox" data-tts-type="Tornado Watch" /> Tornado Watch</label>
+                <label><input type="checkbox" data-tts-type="Tornado Warning" checked /> Tornado Warning</label>
+                <label><input type="checkbox" data-tts-type="Severe Thunderstorm Watch" /> Severe Thunderstorm
+                    Watch</label>
+                <label><input type="checkbox" data-tts-type="Severe Thunderstorm Warning" /> Severe Thunderstorm
+                    Warning</label>
+            </div>
+
             <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
                 <button id="tts-test-btn" class="btn-secondary" style="flex:1">🔊 Test Alert TTS</button>
                 <button id="tts-test-conditions" class="btn-secondary" style="flex:1">🌤 Read Conditions</button>
