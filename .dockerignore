@@ -1,0 +1,5 @@
+.git
+.gitattributes
+*.md
+node_modules
+generate-playlist.js

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeatherNow – Modern Weather Client</title>
+    <meta name="description"
+        content="A modern, real-time weather client inspired by WeatherStar, with music, alerts, and customization." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="css/weather.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+</head>
+
+<body class="theme-dark" id="app-body">
+
+    <!-- ═══════════════════════════════════════════════
+       SETTINGS PANEL (slides in from left)
+  ═══════════════════════════════════════════════ -->
+    <div id="settings-overlay" class="settings-overlay hidden"></div>
+    <aside id="settings-panel" class="settings-panel">
+        <div class="settings-header">
+            <span class="settings-title">⚙ Settings</span>
+            <button id="settings-close" class="icon-btn" title="Close">✕</button>
+        </div>
+
+        <!-- Location -->
+        <section class="settings-section">
+            <h3>📍 Location</h3>
+            <div class="input-group">
+                <input type="text" id="location-input" placeholder="City, State or ZIP code" autocomplete="off" />
+                <button id="location-go" class="btn-primary">GO</button>
+                <button id="location-gps" class="icon-btn" title="Use my location">🎯</button>
+            </div>
+            <div id="location-status" class="status-text"></div>
+        </section>
+
+        <!-- Units -->
+        <section class="settings-section">
+            <h3>🌡 Units</h3>
+            <div class="toggle-row">
+                <span>Temperature</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="unit-toggle" />
+                    <span class="toggle-slider"></span>
+                </label>
+                <span id="unit-label">°F</span>
+            </div>
+        </section>
+
+        <!-- Displays -->
+        <section class="settings-section">
+            <h3>📺 Displays</h3>
+            <div class="checkbox-grid" id="display-toggles">
+                <label><input type="checkbox" data-display="conditions" checked /> Current Conditions</label>
+                <label><input type="checkbox" data-display="observations" checked /> Detailed Observations</label>
+                <label><input type="checkbox" data-display="hourly" checked /> Hourly Forecast</label>
+                <label><input type="checkbox" data-display="extended" checked /> Extended Forecast</label>
+                <label><input type="checkbox" data-display="precipchart" checked /> Precipitation</label>
+                <label><input type="checkbox" data-display="almanac" checked /> Almanac</label>
+                <label><input type="checkbox" data-display="airquality" checked /> Air Quality</label>
+                <label><input type="checkbox" data-display="pollen" checked /> Pollen &amp; Health</label>
+                <label><input type="checkbox" data-display="radar" checked /> Radar</label>
+                <label><input type="checkbox" data-display="alerts" checked /> Severe Alerts</label>
+            </div>
+        </section>
+
+        <!-- Speed -->
+        <section class="settings-section">
+            <h3>⏱ Cycle Speed</h3>
+            <div class="range-row">
+                <span>Slow</span>
+                <input type="range" id="speed-slider" min="5" max="60" value="12" step="1" />
+                <span>Fast</span>
+            </div>
+            <div class="range-value"><span id="speed-value">12</span>s per slide</div>
+        </section>
+
+        <!-- Theme -->
+        <section class="settings-section">
+            <h3>🎨 Theme</h3>
+            <div class="theme-grid">
+                <button class="theme-btn active" data-theme="dark">🌑 Dark</button>
+                <button class="theme-btn" data-theme="retro">📺 Retro</button>
+                <button class="theme-btn" data-theme="midnight">🌌 Midnight</button>
+                <button class="theme-btn" data-theme="aurora">🔮 Aurora</button>
+            </div>
+        </section>
+
+        <!-- Music -->
+        <section class="settings-section">
+            <h3>🎵 Music</h3>
+            <div class="music-folder-row">
+                <button id="music-folder-btn" class="btn-secondary">📁 Load Music Folder</button>
+                <input type="file" id="music-folder-input" webkitdirectory multiple accept="audio/*"
+                    style="display:none" />
+            </div>
+            <div id="music-track-list" class="track-list"></div>
+            <div class="toggle-row">
+                <span>Shuffle</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="shuffle-toggle" checked />
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span>Auto-play</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoplay-toggle" checked />
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="range-row">
+                <span>🔈</span>
+                <input type="range" id="volume-slider" min="0" max="100" value="40" step="1" />
+                <span>🔊</span>
+            </div>
+        </section>
+
+        <!-- Alerts TTS -->
+        <section class="settings-section">
+            <h3>🚨 Alert Announcements</h3>
+            <div class="toggle-row">
+                <span>Text-to-Speech alerts</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="tts-toggle" checked />
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span>Lower music for alerts</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="duck-toggle" checked />
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                <button id="tts-test-btn" class="btn-secondary" style="flex:1">🔊 Test Alert TTS</button>
+                <button id="tts-test-conditions" class="btn-secondary" style="flex:1">🌤 Read Conditions</button>
+            </div>
+            <div id="tts-status" class="status-text"></div>
+        </section>
+
+        <!-- Kiosk Mode -->
+        <section class="settings-section">
+            <h3>🖥 Kiosk Mode</h3>
+            <p class="hint-text">Fullscreen, hides all controls. Press <kbd>Esc</kbd> to exit.</p>
+            <button id="kiosk-btn" class="btn-kiosk">⛶ Enter Kiosk Mode</button>
+        </section>
+    </aside>
+
+    <!-- ═══════════════════════════════════════════════
+       MAIN WEATHER CLIENT AREA
+  ═══════════════════════════════════════════════ -->
+    <main id="weather-main" class="weather-main">
+
+        <!-- TOP BAR -->
+        <header class="top-bar" id="top-bar">
+            <div class="top-bar-left">
+                <button id="settings-open" class="icon-btn hamburger" title="Settings">☰</button>
+                <div class="brand">
+                    <div class="brand-badge">WEATHER<br />NOW</div>
+                    <div class="brand-sub">LIVE</div>
+                </div>
+                <div class="location-display" id="location-display">Loading...</div>
+            </div>
+            <div class="top-bar-right">
+                <div class="clock-block">
+                    <div id="clock-time" class="clock-time">--:--:--</div>
+                    <div id="clock-date" class="clock-date">--- --- --</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ALERT BANNER (hidden unless active) -->
+        <div id="alert-banner" class="alert-banner hidden">
+            <span class="alert-icon">⚠</span>
+            <div id="alert-ticker" class="alert-ticker-text"></div>
+        </div>
+
+        <!-- SLIDE DISPLAY AREA -->
+        <div class="slide-viewport" id="slide-viewport">
+
+            <!-- Loading Screen -->
+            <div class="slide active" id="slide-loading">
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <p>Fetching weather data...</p>
+                </div>
+            </div>
+
+            <!-- Current Conditions -->
+            <div class="slide hidden" id="slide-conditions" data-display="conditions">
+                <div class="slide-header">
+                    <span class="slide-title">Current Conditions</span>
+                    <span class="slide-badge noaa">NOAA</span>
+                </div>
+                <div class="conditions-layout">
+                    <div class="conditions-left">
+                        <div id="cond-temp" class="big-temp">--°</div>
+                        <div id="cond-desc" class="cond-desc">---</div>
+                        <div id="cond-icon" class="weather-icon-large">🌤</div>
+                        <div id="cond-feelslike" class="feels-like">Feels like --°</div>
+                        <div id="cond-heatindex-wc" class="feels-like"
+                            style="font-size:0.8rem;margin-top:-4px;color:var(--text-secondary)"></div>
+                    </div>
+                    <div class="conditions-right">
+                        <div class="stat-row"><span class="stat-label">Humidity</span><span id="cond-humidity"
+                                class="stat-value">--%</span></div>
+                        <div class="stat-row"><span class="stat-label">Dewpoint</span><span id="cond-dewpoint"
+                                class="stat-value">--°</span></div>
+                        <div class="stat-row"><span class="stat-label">Wind</span><span id="cond-wind"
+                                class="stat-value">---</span></div>
+                        <div class="stat-row"><span class="stat-label">Gusts</span><span id="cond-gusts"
+                                class="stat-value">---</span></div>
+                        <div class="stat-row"><span class="stat-label">Visibility</span><span id="cond-vis"
+                                class="stat-value">-- mi</span></div>
+                        <div class="stat-row"><span class="stat-label">Pressure</span><span id="cond-pressure"
+                                class="stat-value">-- inHg</span></div>
+                        <div class="stat-row"><span class="stat-label">Cloud Cover</span><span id="cond-cloud"
+                                class="stat-value">--</span></div>
+                        <div class="stat-row"><span class="stat-label">UV Index</span><span id="cond-uv"
+                                class="stat-value">--</span></div>
+                        <div class="stat-row"><span class="stat-label">Precip (1h)</span><span id="cond-precip"
+                                class="stat-value">--</span></div>
+                        <div class="stat-row"><span class="stat-label">Snow Depth</span><span id="cond-snow"
+                                class="stat-value">--</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hourly Forecast -->
+            <div class="slide hidden" id="slide-hourly" data-display="hourly">
+                <div class="slide-header">
+                    <span class="slide-title">Hourly Forecast</span>
+                </div>
+                <div id="hourly-container" class="hourly-container"></div>
+            </div>
+
+            <!-- Extended Forecast (7-day) -->
+            <div class="slide hidden" id="slide-extended" data-display="extended">
+                <div class="slide-header">
+                    <span class="slide-title">Extended Forecast</span>
+                </div>
+                <div id="extended-container" class="extended-container"></div>
+            </div>
+
+            <!-- Almanac -->
+            <div class="slide hidden" id="slide-almanac" data-display="almanac">
+                <div class="slide-header">
+                    <span class="slide-title">Almanac</span>
+                </div>
+                <div class="almanac-layout">
+                    <div class="almanac-card">
+                        <div class="almanac-icon">🌅</div>
+                        <div class="almanac-label">Sunrise</div>
+                        <div id="alm-sunrise" class="almanac-value">--:-- AM</div>
+                    </div>
+                    <div class="almanac-card">
+                        <div class="almanac-icon">🌇</div>
+                        <div class="almanac-label">Sunset</div>
+                        <div id="alm-sunset" class="almanac-value">--:-- PM</div>
+                    </div>
+                    <div class="almanac-card">
+                        <div class="almanac-icon">🌕</div>
+                        <div class="almanac-label">Moon Phase</div>
+                        <div id="alm-moon" class="almanac-value">---</div>
+                    </div>
+                    <div class="almanac-card">
+                        <div class="almanac-icon">🌤</div>
+                        <div class="almanac-label">Day Length</div>
+                        <div id="alm-daylength" class="almanac-value">--h --m</div>
+                    </div>
+                    <div class="almanac-card">
+                        <div class="almanac-icon">🔆</div>
+                        <div class="almanac-label">Solar Noon</div>
+                        <div id="alm-solarnoon" class="almanac-value">--:-- PM</div>
+                    </div>
+                    <div class="almanac-card">
+                        <div class="almanac-icon">📅</div>
+                        <div class="almanac-label">Day of Year</div>
+                        <div id="alm-dayofyear" class="almanac-value">---</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Air Quality -->
+            <div class="slide hidden" id="slide-airquality" data-display="airquality">
+                <div class="slide-header">
+                    <span class="slide-title">Air Quality Index</span>
+                </div>
+                <div class="aqi-layout">
+                    <div class="aqi-main">
+                        <div id="aqi-value" class="aqi-number">--</div>
+                        <div id="aqi-label" class="aqi-label">Loading...</div>
+                        <div class="aqi-bar-container">
+                            <div class="aqi-bar-bg">
+                                <div id="aqi-indicator" class="aqi-indicator"></div>
+                            </div>
+                            <div class="aqi-scale-labels">
+                                <span>Good</span><span>Moderate</span><span>Unhealthy</span><span>Hazardous</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="aqi-detail-grid">
+                        <div class="aqi-detail-card"><span class="aqi-detail-label">PM2.5</span><span id="aqi-pm25"
+                                class="aqi-detail-value">--</span></div>
+                        <div class="aqi-detail-card"><span class="aqi-detail-label">PM10</span><span id="aqi-pm10"
+                                class="aqi-detail-value">--</span></div>
+                        <div class="aqi-detail-card"><span class="aqi-detail-label">Ozone</span><span id="aqi-ozone"
+                                class="aqi-detail-value">--</span></div>
+                        <div class="aqi-detail-card"><span class="aqi-detail-label">NO₂</span><span id="aqi-no2"
+                                class="aqi-detail-value">--</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Observations -->
+            <div class="slide hidden" id="slide-observations" data-display="observations">
+                <div class="slide-header">
+                    <span class="slide-title">Detailed Observations</span>
+                    <span class="slide-badge noaa">ASOS</span>
+                </div>
+                <div class="obs-grid" id="obs-grid"></div>
+            </div>
+
+            <!-- Precipitation Chart -->
+            <div class="slide hidden" id="slide-precipchart" data-display="precipchart">
+                <div class="slide-header">
+                    <span class="slide-title">Precipitation Forecast</span>
+                </div>
+                <div class="precip-chart-wrap">
+                    <div id="precip-chart" class="precip-chart"></div>
+                    <div class="precip-legend">
+                        <span class="pl-rain">💧 Rain</span>
+                        <span class="pl-snow">❄ Snow</span>
+                        <span class="pl-tstorm">⛈ Thunderstorm Risk</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pollen & Health -->
+            <div class="slide hidden" id="slide-pollen" data-display="pollen">
+                <div class="slide-header">
+                    <span class="slide-title">Pollen &amp; Health</span>
+                </div>
+                <div class="pollen-layout">
+                    <div class="pollen-overall">
+                        <div id="pollen-overall-icon" class="pollen-big-icon">🌿</div>
+                        <div id="pollen-overall-label" class="pollen-overall-label">Loading...</div>
+                        <div class="pollen-overall-sub">Overall Pollen Level</div>
+                    </div>
+                    <div class="pollen-grid">
+                        <div class="pollen-card"><span class="pollen-type">🌾 Grass</span><span id="pollen-grass-val"
+                                class="pollen-val">--</span><span id="pollen-grass-lbl" class="pollen-lbl">--</span>
+                        </div>
+                        <div class="pollen-card"><span class="pollen-type">🌳 Birch</span><span id="pollen-birch-val"
+                                class="pollen-val">--</span><span id="pollen-birch-lbl" class="pollen-lbl">--</span>
+                        </div>
+                        <div class="pollen-card"><span class="pollen-type">🌲 Alder</span><span id="pollen-alder-val"
+                                class="pollen-val">--</span><span id="pollen-alder-lbl" class="pollen-lbl">--</span>
+                        </div>
+                        <div class="pollen-card"><span class="pollen-type">🌼 Ragweed</span><span
+                                id="pollen-ragweed-val" class="pollen-val">--</span><span id="pollen-ragweed-lbl"
+                                class="pollen-lbl">--</span></div>
+                        <div class="pollen-card"><span class="pollen-type">🌱 Mugwort</span><span
+                                id="pollen-mugwort-val" class="pollen-val">--</span><span id="pollen-mugwort-lbl"
+                                class="pollen-lbl">--</span></div>
+                        <div class="pollen-card"><span class="pollen-type">🫒 Olive</span><span id="pollen-olive-val"
+                                class="pollen-val">--</span><span id="pollen-olive-lbl" class="pollen-lbl">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Radar -->
+            <div class="slide hidden" id="slide-radar" data-display="radar">
+                <div class="slide-header">
+                    <span class="slide-title">Local Radar</span>
+                    <span id="radar-updated" class="slide-badge live-badge">● LIVE</span>
+                    <span id="radar-timestamp" class="slide-badge" style="font-size:0.65rem"></span>
+                </div>
+                <div class="radar-container">
+                    <!-- Legend -->
+                    <div class="radar-legend">
+                        <span class="radar-legend-title">PRECIP</span>
+                        <div class="radar-legend-bar"></div>
+                        <div class="radar-legend-labels"><span>Light</span><span>Heavy</span></div>
+                    </div>
+                    <!-- Leaflet map -->
+                    <div id="radar-map" class="radar-map"></div>
+                    <!-- Playback controls -->
+                    <div class="radar-controls">
+                        <button id="radar-play" class="radar-ctrl-btn" title="Play/Pause animation">⏸</button>
+                        <div class="radar-frames" id="radar-frame-dots"></div>
+                        <button id="radar-live" class="radar-ctrl-btn" title="Jump to latest">LIVE</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Severe Alerts -->
+            <div class="slide hidden" id="slide-alerts" data-display="alerts">
+                <div class="slide-header alert-slide-header">
+                    <span class="alert-slide-icon">⚠</span>
+                    <span class="slide-title">Severe Weather Alerts</span>
+                </div>
+                <div id="alerts-container" class="alerts-container">
+                    <div class="no-alerts">✅ No active severe weather alerts for this area.</div>
+                </div>
+            </div>
+
+        </div><!-- /slide-viewport -->
+
+        <!-- PROGRESS BAR -->
+        <div class="progress-bar-container" id="progress-bar-container">
+            <div id="slide-progress" class="slide-progress"></div>
+            <div id="slide-dots" class="slide-dots"></div>
+        </div>
+
+        <!-- BOTTOM TICKER BAR -->
+        <footer class="bottom-bar" id="bottom-bar">
+            <div class="ticker-left">
+                <span id="ticker-label" class="ticker-label">CONDITIONS</span>
+                <div class="ticker-scroll-container">
+                    <div id="ticker-text" class="ticker-text">Loading weather data...</div>
+                </div>
+            </div>
+            <div class="music-controls" id="music-controls">
+                <button id="mc-prev" class="mc-btn" title="Previous">⏮</button>
+                <button id="mc-play" class="mc-btn" title="Play/Pause">▶</button>
+                <button id="mc-next" class="mc-btn" title="Next">⏭</button>
+                <div class="mc-track-info">
+                    <div id="mc-track-name" class="mc-track-name">No music loaded</div>
+                    <div id="mc-progress-bar" class="mc-progress-bar">
+                        <div id="mc-progress-fill" class="mc-progress-fill"></div>
+                    </div>
+                </div>
+                <button id="mc-mute" class="mc-btn" title="Mute">🔊</button>
+            </div>
+        </footer>
+
+        <!-- NAV CONTROLS (shown on hover in kiosk, always visible otherwise) -->
+        <div class="slide-nav" id="slide-nav">
+            <button id="nav-prev" class="nav-btn" title="Previous slide">‹</button>
+            <button id="nav-pause" class="nav-btn" title="Pause/Resume">⏸</button>
+            <button id="nav-next" class="nav-btn" title="Next slide">›</button>
+            <button id="nav-refresh" class="nav-btn" title="Refresh data">↺</button>
+            <button id="nav-fullscreen" class="nav-btn" title="Fullscreen">⛶</button>
+        </div>
+
+    </main>
+
+    <!-- Hidden audio element for music -->
+    <audio id="bg-audio" preload="auto"></audio>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="js/settings.js"></script>
+    <script src="js/music.js"></script>
+    <script src="js/weather.js"></script>
+    <script src="js/alerts.js"></script>
+    <script src="js/radar.js"></script>
+    <script src="js/displays.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
