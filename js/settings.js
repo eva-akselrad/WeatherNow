@@ -150,11 +150,21 @@ const Settings = (() => {
     function getDuckEnabled() { return document.getElementById('duck-toggle')?.checked ?? true; }
 
     function bindAlertToggles() {
-        document.getElementById('tts-toggle')?.addEventListener('change', e => {
+        const filterGrid = document.getElementById('tts-type-filters');
+
+        const ttsToggle = document.getElementById('tts-toggle');
+        ttsToggle?.addEventListener('change', e => {
             if (typeof AlertsManager !== 'undefined') AlertsManager.setTTS(e.target.checked);
+            if (filterGrid) filterGrid.style.opacity = e.target.checked ? '1' : '0.35';
+            saveToStorage();
         });
         document.getElementById('duck-toggle')?.addEventListener('change', e => {
             if (typeof AlertsManager !== 'undefined') AlertsManager.setDuck(e.target.checked);
+        });
+
+        // Per-type filter checkboxes
+        document.querySelectorAll('[data-tts-type]').forEach(cb => {
+            cb.addEventListener('change', () => saveToStorage());
         });
 
         // TTS test buttons
@@ -197,6 +207,12 @@ const Settings = (() => {
     // ── Persistence ────────────────────────────────────────────────
     function saveToStorage() {
         try {
+            // Collect suppressed types (unchecked boxes)
+            const suppressedTypes = [];
+            document.querySelectorAll('[data-tts-type]').forEach(cb => {
+                if (!cb.checked) suppressedTypes.push(cb.dataset.ttsType);
+            });
+
             const state = {
                 theme: currentTheme,
                 units: document.getElementById('unit-toggle')?.checked ? 'celsius' : 'fahrenheit',
@@ -206,6 +222,7 @@ const Settings = (() => {
                 tts: document.getElementById('tts-toggle')?.checked ?? true,
                 duck: document.getElementById('duck-toggle')?.checked ?? true,
                 shuffle: document.getElementById('shuffle-toggle')?.checked ?? true,
+                suppressedTtsTypes: suppressedTypes
             };
             localStorage.setItem('weathernow_settings', JSON.stringify(state));
         } catch { }
@@ -250,9 +267,21 @@ const Settings = (() => {
             const ttsT = document.getElementById('tts-toggle');
             const duckT = document.getElementById('duck-toggle');
             const shuffT = document.getElementById('shuffle-toggle');
-            if (ttsT && state.tts !== undefined) ttsT.checked = state.tts;
+            if (ttsT && state.tts !== undefined) {
+                ttsT.checked = state.tts;
+                // Apply dimming of filter grid to match persisted state
+                const fg = document.getElementById('tts-type-filters');
+                if (fg) fg.style.opacity = state.tts ? '1' : '0.35';
+            }
             if (duckT && state.duck !== undefined) duckT.checked = state.duck;
             if (shuffT && state.shuffle !== undefined) shuffT.checked = state.shuffle;
+
+            // Restore suppressed alert types
+            if (state.suppressedTtsTypes) {
+                document.querySelectorAll('[data-tts-type]').forEach(cb => {
+                    cb.checked = !state.suppressedTtsTypes.includes(cb.dataset.ttsType);
+                });
+            }
 
         } catch { }
     }
