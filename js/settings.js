@@ -146,7 +146,7 @@ const Settings = (() => {
     }
 
     // ── TTS & Duck toggles ─────────────────────────────────────────
-    function getTTSEnabled() { return document.getElementById('tts-toggle')?.checked ?? true; }
+    function getTTSEnabled() { return document.getElementById('tts-toggle')?.checked ?? false; }
     function getDuckEnabled() { return document.getElementById('duck-toggle')?.checked ?? true; }
 
     function bindAlertToggles() {
