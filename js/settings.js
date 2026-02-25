@@ -146,7 +146,7 @@ const Settings = (() => {
     }
 
     // ── TTS & Duck toggles ─────────────────────────────────────────
-    function getTTSEnabled() { return document.getElementById('tts-toggle')?.checked ?? true; }
+    function getTTSEnabled() { return document.getElementById('tts-toggle')?.checked ?? false; }
     function getDuckEnabled() { return document.getElementById('duck-toggle')?.checked ?? true; }
 
     function bindAlertToggles() {
@@ -205,25 +205,28 @@ const Settings = (() => {
     }
 
     // ── Persistence ────────────────────────────────────────────────
+    function getState() {
+        const suppressedTypes = [];
+        document.querySelectorAll('[data-tts-type]').forEach(cb => {
+            if (!cb.checked) suppressedTypes.push(cb.dataset.ttsType);
+        });
+
+        return {
+            theme: currentTheme,
+            units: document.getElementById('unit-toggle')?.checked ? 'celsius' : 'fahrenheit',
+            speed: document.getElementById('speed-slider')?.value || 12,
+            displays: getActiveDisplays(),
+            volume: document.getElementById('volume-slider')?.value || 40,
+            tts: document.getElementById('tts-toggle')?.checked ?? true,
+            duck: document.getElementById('duck-toggle')?.checked ?? true,
+            shuffle: document.getElementById('shuffle-toggle')?.checked ?? true,
+            suppressedTtsTypes: suppressedTypes
+        };
+    }
+
     function saveToStorage() {
         try {
-            // Collect suppressed types (unchecked boxes)
-            const suppressedTypes = [];
-            document.querySelectorAll('[data-tts-type]').forEach(cb => {
-                if (!cb.checked) suppressedTypes.push(cb.dataset.ttsType);
-            });
-
-            const state = {
-                theme: currentTheme,
-                units: document.getElementById('unit-toggle')?.checked ? 'celsius' : 'fahrenheit',
-                speed: document.getElementById('speed-slider')?.value || 12,
-                displays: getActiveDisplays(),
-                volume: document.getElementById('volume-slider')?.value || 40,
-                tts: document.getElementById('tts-toggle')?.checked ?? true,
-                duck: document.getElementById('duck-toggle')?.checked ?? true,
-                shuffle: document.getElementById('shuffle-toggle')?.checked ?? true,
-                suppressedTtsTypes: suppressedTypes
-            };
+            const state = getState();
             localStorage.setItem('weathernow_settings', JSON.stringify(state));
         } catch { }
     }
@@ -290,5 +293,5 @@ const Settings = (() => {
         return parseInt(document.getElementById('speed-slider')?.value || 12) * 1000;
     }
 
-    return { init, openPanel, closePanel, getActiveDisplays, bindDisplayToggles, getSpeed, saveToStorage };
+    return { init, openPanel, closePanel, getActiveDisplays, bindDisplayToggles, getSpeed, saveToStorage, getState, enterKiosk };
 })();
