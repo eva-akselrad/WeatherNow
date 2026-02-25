@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# 1. Start the virtual display (1920x1080 resolution)
+Xvfb :99 -screen 0 1920x1080x24 &
+export DISPLAY=:99
+
+# 2. Start a tiny window manager so the browser stays fullscreen
+fluxbox &
+
+# 3. Launch the browser in kiosk mode (fullscreen, no UI)
+chromium-browser --no-sandbox --kiosk --window-position=0,0 --window-size=1920,1080 "https://weather.evaakselrad.com/" &
+
+# Wait a few seconds for the page to load
+sleep 10
+
+# 4. Use FFmpeg to grab the virtual display and push to YouTube
+ffmpeg -f x11grab -video_size 1920x1080 -i :99.0 \
+    -f alsa -i default -c:v libx264 -preset veryfast \
+    -b:v 3000k -maxrate 3000k -bufsize 6000k \
+    -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k \
+    -f flv "rtmp://a.rtmp.youtube.com/live2/sphz-txx6-qepe-grmh-8m8q"

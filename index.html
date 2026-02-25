@@ -175,6 +175,22 @@
             <p class="hint-text">Fullscreen, hides all controls. Press <kbd>Esc</kbd> to exit.</p>
             <button id="kiosk-btn" class="btn-kiosk">⛶ Enter Kiosk Mode</button>
         </section>
+
+        <!-- Permalink -->
+        <section class="settings-section">
+            <h3>🔗 Permalink</h3>
+            <p class="hint-text">Create a link that restores your current settings and location.</p>
+            <div class="toggle-row">
+                <span>Start in Kiosk mode</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="permalink-kiosk-toggle" />
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <button id="btn-copy-permalink" class="btn-primary" style="width: 100%; margin-top: 10px;">📋 Copy
+                Permalink</button>
+            <div id="permalink-status" class="status-text" style="text-align: center; margin-top: 5px;"></div>
+        </section>
     </aside>
 
     <!-- ═══════════════════════════════════════════════

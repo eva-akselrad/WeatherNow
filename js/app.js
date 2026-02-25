@@ -313,6 +313,39 @@
             showSlide(currentSlide);
         });
 
+        // Permalink
+        const btnCopy = document.getElementById('btn-copy-permalink');
+        btnCopy?.addEventListener('click', async () => {
+            const status = document.getElementById('permalink-status');
+            try {
+                const state = Settings.getState();
+                const loc = { query: locationInput?.value || WeatherAPI.getLocation().label };
+                const checkKiosk = document.getElementById('permalink-kiosk-toggle');
+                const isKiosk = checkKiosk ? checkKiosk.checked : false;
+
+                const payload = { s: state, l: loc, k: isKiosk };
+                const encoded = btoa(JSON.stringify(payload));
+
+                const url = new URL(window.location.href);
+                url.searchParams.set('s', encoded);
+
+                await navigator.clipboard.writeText(url.toString());
+
+                if (status) {
+                    status.textContent = '✓ Copied to clipboard!';
+                    status.style.color = '#4ade80';
+                    setTimeout(() => { if (status.textContent === '✓ Copied to clipboard!') status.textContent = ''; }, 3000);
+                }
+            } catch (err) {
+                console.error('Failed to copy permalink', err);
+                if (status) {
+                    status.textContent = '❌ Failed to copy';
+                    status.style.color = '#f87171';
+                    setTimeout(() => { if (status.textContent === '❌ Failed to copy') status.textContent = ''; }, 3000);
+                }
+            }
+        });
+
         // Keyboard nav
         document.addEventListener('keydown', e => {
             if (e.target.tagName === 'INPUT') return;
@@ -350,7 +383,31 @@
     }
 
     // ── Boot ───────────────────────────────────────────────────────
+    let autoKiosk = false;
+
+    async function processPermalink() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const s = params.get('s');
+            if (s) {
+                const decoded = JSON.parse(atob(s));
+                if (decoded.s) localStorage.setItem('weathernow_settings', JSON.stringify(decoded.s));
+                if (decoded.l) localStorage.setItem('weathernow_location', JSON.stringify(decoded.l));
+                if (decoded.k) autoKiosk = true;
+
+                // Clean URL
+                const url = new URL(window.location.href);
+                url.searchParams.delete('s');
+                window.history.replaceState({}, document.title, url.pathname + url.search);
+            }
+        } catch (err) {
+            console.error("Failed to process permalink", err);
+        }
+    }
+
     async function boot() {
+        await processPermalink();
+
         startClock();
         Settings.init(onSettingsChange);
         MusicPlayer.init();
@@ -378,6 +435,10 @@
         locationGo?.addEventListener('click', () => {
             try { localStorage.setItem('weathernow_location', JSON.stringify({ query: locationInput?.value })); } catch { }
         });
+
+        if (autoKiosk) {
+            Settings.enterKiosk();
+        }
     }
 
     // ── Start ──────────────────────────────────────────────────────
