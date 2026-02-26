@@ -1,7 +1,7 @@
 {
-    "name": "weathernow",
+    "name": "shelly",
     "version": "1.0.0",
-    "description": "WeatherNow – Modern Weather Client",
+    "description": "S.H.E.L.L.Y. – Severe Hydrology & Environmental Live Logging Yearbook",
     "main": "server.js",
     "scripts": {
         "start": "node server.js",
