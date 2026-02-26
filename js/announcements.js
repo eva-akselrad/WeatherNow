@@ -109,13 +109,13 @@ const Announcements = (() => {
 
     // ── Scroll helper (seamless marquee loop) ─────────────────────
     function setBannerScroll(el) {
-        const orig = el.dataset.orig || el.textContent;
+        const orig = el.dataset.orig || el.innerHTML;
         el.dataset.orig = orig;
-        el.textContent = orig + '     ' + orig;
+        el.innerHTML = orig + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + orig;
         const container = el.parentElement;
         if (container && el.scrollWidth / 2 <= container.clientWidth) {
             el.classList.add('no-scroll');
-            el.textContent = orig;
+            el.innerHTML = orig;
         } else {
             el.classList.remove('no-scroll');
         }
@@ -131,7 +131,13 @@ const Announcements = (() => {
         const icons = { info: 'ℹ', warning: '⚠', emergency: '🚨' };
         banner.dataset.type = msg.type;
         if (icon) icon.textContent = icons[msg.type] || 'ℹ';
-        text.textContent = (msg.title ? `${msg.title}: ` : '') + msg.text;
+
+        let parsedText = escHtml(msg.text);
+        if (typeof marked !== 'undefined') {
+            parsedText = marked.parseInline(msg.text, { breaks: true });
+        }
+        text.innerHTML = (msg.title ? `<strong>${escHtml(msg.title)}:</strong> ` : '') + parsedText;
+
         banner.classList.remove('hidden');
         requestAnimationFrame(() => setBannerScroll(text));
 
@@ -156,6 +162,11 @@ const Announcements = (() => {
         // Create a popup element
         const overlay = document.createElement('div');
         overlay.className = `announce-popup announce-popup-${msg.type}`;
+        let parsedBody = escHtml(msg.text);
+        if (typeof marked !== 'undefined') {
+            parsedBody = marked.parse(msg.text, { breaks: true });
+        }
+
         overlay.innerHTML = `
             <div class="announce-popup-inner">
                 <div class="announce-popup-header">
@@ -163,7 +174,7 @@ const Announcements = (() => {
                     <span class="announce-popup-title">${escHtml(msg.title || typeLabelFor(msg.type))}</span>
                     <button class="announce-popup-close" title="Dismiss">✕</button>
                 </div>
-                <div class="announce-popup-body">${escHtml(msg.text)}</div>
+                <div class="announce-popup-body markdown-body">${parsedBody}</div>
                 ${msg.duration > 0 ? `<div class="announce-popup-timer"><div class="announce-popup-timer-bar"></div></div>` : ''}
             </div>
         `;

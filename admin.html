@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WeatherNow – Admin Panel</title>
+    <title>S.H.E.L.L.Y. – Admin Panel</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap"
@@ -481,7 +482,8 @@
     <!-- ── Login ── -->
     <div id="login-screen">
         <div class="login-box">
-            <div class="login-logo">WEATHER NOW</div>
+            <div class="login-logo" style="font-size: 0.65em; padding: 4px 8px; letter-spacing: 0.05em;">S.H.E.L.L.Y.
+            </div>
             <div class="login-title">Admin Panel</div>
             <div class="login-sub">Enter your admin password to continue.</div>
             <input type="password" id="pw-input" placeholder="Admin password" autocomplete="current-password" />
@@ -494,7 +496,8 @@
     <div id="admin-ui">
 
         <div class="admin-header">
-            <div class="admin-brand">WEATHER<br>NOW</div>
+            <div class="admin-brand" style="font-size: 0.6em; padding: 4px 8px; letter-spacing: 0.05em;">S.H.E.L.L.Y.
+            </div>
             <h1>Admin Panel</h1>
             <span class="admin-status"><span id="status-dot"></span><span id="status-text">Connecting…</span></span>
         </div>
@@ -581,6 +584,7 @@
 
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         (function () {
             const API = '/api';

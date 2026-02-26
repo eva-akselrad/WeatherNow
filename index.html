@@ -4,9 +4,10 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WeatherNow – Modern Weather Client</title>
+    <title>S.H.E.L.L.Y. – Severe Hydrology & Environmental Live Logging Yearbook</title>
     <meta name="description"
-        content="A modern, real-time weather client inspired by WeatherStar, with music, alerts, and customization." />
+        content="S.H.E.L.L.Y. – Severe Hydrology & Environmental Live Logging Yearbook, a modern, real-time weather client inspired by WeatherStar, with music, alerts, and customization." />
+    <link rel="icon" type="image/png" href="assets/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -203,7 +204,8 @@
             <div class="top-bar-left">
                 <button id="settings-open" class="icon-btn hamburger" title="Settings">☰</button>
                 <div class="brand">
-                    <div class="brand-badge">WEATHER<br />NOW</div>
+                    <div class="brand-badge" style="font-size: 0.65em; padding: 4px 8px; line-height: 1.2;">S.H.E.L.L.Y.
+                    </div>
                     <div class="brand-sub">LIVE</div>
                 </div>
                 <div class="location-display" id="location-display">Loading...</div>
@@ -510,6 +512,7 @@
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/music.js"></script>
     <script src="js/weather.js"></script>
