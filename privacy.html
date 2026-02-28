@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S.H.E.L.L.Y. (WeatherNow) - Privacy Policy</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/weather.css" />
+    <link rel="stylesheet" href="css/mobile.css" media="screen and (max-width: 768px)" />
+    <style>
+        body {
+            overflow-y: auto;
+            padding: 20px;
+            font-family: var(--font-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: var(--font-display);
+            color: var(--accent);
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            text-align: center;
+            border-bottom: 2px solid var(--border-strong);
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+        }
+
+        p,
+        ul,
+        li {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            margin-top: 20px;
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+
+<body class="theme-dark">
+    <div class="container">
+        <h1>Privacy Policy</h1>
+        <p><strong>Last Updated:</strong> February 2026</p>
+
+        <p>Welcome to S.H.E.L.L.Y. (Severe Hydrology & Environmental Live Logging Yearbook) / WeatherNow. We are
+            committed to protecting your privacy. This policy outlines exactly what information we collect, how it is
+            used, and which third parties receive data.</p>
+
+        <h2>1. Information We Collect</h2>
+        <p>When you use this application, we collect or process the following information:</p>
+        <ul>
+            <li><strong>Location Data:</strong> To provide accurate weather forecasts, radar imagery, and severe weather
+                alerts customized to your area, we require either your device's geographical coordinates (GPS) or a
+                manually entered City/State/ZIP Code.</li>
+            <li><strong>Application Settings:</strong> Your customized settings, such as selected themes, unit
+                preferences, cycle speed, and alert configurations.</li>
+        </ul>
+
+        <h2>2. Data Storage</h2>
+        <p>We believe your data belongs to you. We handle storage in the following manner:</p>
+        <ul>
+            <li><strong>Local Storage:</strong> All application settings, preferences, and your most recent location
+                choice are stored <em>locally on your device</em> using your browser's (or app's) LocalStorage
+                functionality. These preferences do not leave your device and are not uploaded to any remote server
+                owned by us.</li>
+            <li><strong>No Accounts:</strong> We do not require account registration, and we do not maintain a remote
+                database of user accounts, identifying information, or personal preferences.</li>
+        </ul>
+
+        <h2>3. Third-Party Services and Data Sharing</h2>
+        <p>Because S.H.E.L.L.Y. is a live data dashboard, your geographic coordinates and search terms must be
+            transmitted to external weather providers to retrieve live meteorological data. When the app fetches data,
+            the following third parties may receive your location data:</p>
+        <ul>
+            <li><strong>Open-Meteo API</strong> (<code>api.open-meteo.com</code> &
+                <code>air-quality-api.open-meteo.com</code>): Used to fetch all current conditions, hourly/extended
+                forecasts, almanac information, and air quality metrics. Your exact geographic coordinates are sent to
+                Open-Meteo with each data refresh. You can review their privacy policy at <a
+                    href="https://open-meteo.com/en/features#terms" target="_blank">open-meteo.com</a>.</li>
+            <li><strong>National Weather Service (NWS) API</strong> (<code>api.weather.gov</code>): Used to pull active
+                severe weather alerts for your area. The application transmits your coordinates to secure the correct
+                county/zone alert codes.</li>
+            <li><strong>Cloudflare / Cloudflare Workers:</strong> Used primarily as an API proxy for certain operations
+                (such as server-side music playlists, announcements, or NWS radar imagery). Requests pass through
+                Cloudflare infrastructure which acts as our network gateway.</li>
+            <li><strong>Leaflet & Map Tile Providers:</strong> Radar maps load map frameworks and map imagery. IP
+                addresses might be logged by the Content Delivery Networks (CDNs) corresponding directly to the map
+                scripts used (e.g., Unpkg CDN) and the public domains from which radar frames or base maps are
+                downloaded or proxied.</li>
+        </ul>
+        <p>S.H.E.L.L.Y. <strong>does not</strong> sell your personal data or your location data to advertisers.
+            Information shared with the API providers listed above is strictly used for fulfilling weather
+            functionality.</p>
+
+        <h2>4. Device Capabilities</h2>
+        <p>This application requests the use of specific device hardware and capabilities:</p>
+        <ul>
+            <li><strong>Location / GPS:</strong> Requested strictly when you click the "Use my location" button for
+                auto-detecting your coordinates.</li>
+            <li><strong>Audio / Media:</strong> Utilized to play weather alerts via Text-To-Speech (TTS) and to index
+                and stream local music files loaded strictly by your command. We do not transmit your local file
+                structure to remote servers.</li>
+        </ul>
+
+        <h2>5. Changes to This Policy</h2>
+        <p>We reserve the right to modify this Privacy Policy at any time. If the app begins interacting with additional
+            third-party data services, this document will be updated to reflect how data is handled.</p>
+
+        <p style="text-align:center; margin-top: 40px;">
+            <a href="index.html" class="btn-primary" style="padding:10px 20px; display:inline-block;">Return to App</a>
+        </p>
+    </div>
+</body>
+
+</html>

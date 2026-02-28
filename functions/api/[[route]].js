@@ -61,6 +61,13 @@ export async function onRequest({ request, env }) {
         return json({ ok: true });
     }
 
+    // GET /privacy
+    if (path === '/privacy' && method === 'GET') {
+        const url = new URL(request.url);
+        url.pathname = '/privacy.html';
+        return fetch(url);
+    }
+
     // POST /api/announce
     if (path === '/api/announce' && method === 'POST') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);

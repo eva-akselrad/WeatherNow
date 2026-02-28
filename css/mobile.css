@@ -1,0 +1,124 @@
+/* ════════════════════════════════════════════════════════════════
+   mobile.css – Mobile-first overrides (for Android App wrapper)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Apply to screens under 768px */
+@media screen and (max-width: 768px) {
+    body {
+        font-size: 14px;
+        overflow-x: hidden;
+    }
+
+    /* ── Settings Panel Fullscreen on Mobile ── */
+    .settings-panel {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ── Top Bar Updates ── */
+    .top-bar {
+        padding: 6px 10px;
+        flex-direction: column;
+        align-items: flex-start;
+        height: auto;
+        gap: 8px;
+    }
+
+    .top-bar-right {
+        margin-left: 32px;
+        /* align with text next to hamburger */
+    }
+
+    .clock-block {
+        text-align: left;
+    }
+
+    /* ── Ticker & Controls ── */
+    .bottom-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 8px;
+        gap: 12px;
+    }
+
+    .ticker-left {
+        width: 100%;
+    }
+
+    .music-controls {
+        align-self: center;
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* ── Slide Viewport Padding & Layouts ── */
+    .slide-viewport {
+        height: calc(100vh - 120px);
+        /* Account for taller top/bottom bars */
+    }
+
+    .slide {
+        padding: 12px;
+        overflow-y: auto;
+        /* Allow scrolling within the slide on small screens */
+    }
+
+    /* ── Grid Adjustments ── */
+    .conditions-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .obs-grid {
+        grid-template-columns: 1fr;
+        /* 1 column for tight mobile views */
+        gap: 8px;
+    }
+
+    .almanac-layout,
+    .pollen-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pollen-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .extended-container,
+    .hourly-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow-y: visible;
+        overflow-x: hidden;
+    }
+
+    .day-card,
+    .hourly-card {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        min-width: 0;
+        padding: 12px;
+    }
+
+    /* ── Ensure Radar Fits ── */
+    .radar-container {
+        height: 300px;
+        min-height: 250px;
+    }
+
+    /* ── Navigation ── */
+    .slide-nav {
+        flex-direction: row;
+        top: auto;
+        bottom: 120px;
+        /* Above the expanded bottom bar */
+        right: 10px;
+        transform: none;
+        opacity: 0.8;
+    }
+}
