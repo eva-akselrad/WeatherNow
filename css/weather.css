@@ -1979,7 +1979,7 @@ body.kiosk-mode #music-controls {
 /* ── Detailed Observations (dense grid) ───────────────────────── */
 .obs-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
     gap: 12px;
     height: calc(100% - 80px);
     overflow-y: auto;
@@ -2019,6 +2019,9 @@ body.kiosk-mode #music-controls {
     letter-spacing: 0.06em;
     flex: 1;
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .obs-value {
