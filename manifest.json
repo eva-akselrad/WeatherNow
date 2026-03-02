@@ -1,0 +1,23 @@
+{
+    "name": "S.H.E.L.L.Y. – Live Weather",
+    "short_name": "S.H.E.L.L.Y.",
+    "description": "Severe Hydrology & Environmental Live Logging Yearbook – real-time weather client",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#0a0e1a",
+    "theme_color": "#3b82f6",
+    "icons": [
+        {
+            "src": "/assets/favicon.png",
+            "sizes": "any",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "weather",
+        "utilities"
+    ],
+    "lang": "en-US"
+}

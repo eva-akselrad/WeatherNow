@@ -189,33 +189,6 @@ const Displays = (() => {
         txt('aqi-dust', aq.dust);
     }
 
-    // ── Pollen & Health ────────────────────────────────────────────
-    function renderPollen(data) {
-        const p = data.pollen;
-        if (!p) {
-            const container = el('pollen-overall-label');
-            if (container) container.textContent = 'Pollen data unavailable for this region';
-            return;
-        }
-
-        // Overall
-        txt('pollen-overall-label', p.overall.label);
-        el('pollen-overall-label').style.color = p.overall.color;
-        const icon = el('pollen-overall-icon');
-        if (icon) {
-            const icons = { None: '✅', Low: '🟢', Moderate: '🟡', High: '🟠', 'Very High': '🔴' };
-            icon.textContent = icons[p.overall.label] || '🌿';
-        }
-
-        // Individual species
-        const species = ['grass', 'birch', 'alder', 'ragweed', 'mugwort', 'olive'];
-        species.forEach(s => {
-            const valEl = el(`pollen-${s}-val`);
-            const lblEl = el(`pollen-${s}-lbl`);
-            if (valEl) valEl.textContent = p[s].val;
-            if (lblEl) { lblEl.textContent = p[s].label; lblEl.style.color = p[s].color; }
-        });
-    }
 
     // ── Radar ──────────────────────────────────────────────────────
     function renderRadar(lat, lon) {
@@ -268,7 +241,6 @@ const Displays = (() => {
         renderPrecipChart(weatherData);
         renderAlmanac(weatherData);
         renderAirQuality(weatherData);
-        renderPollen(weatherData);
         renderRadar(lat, lon);
         renderAlerts(alerts, onTTS);
         updateTicker(weatherData, 'CONDITIONS');
@@ -276,7 +248,7 @@ const Displays = (() => {
 
     return {
         renderAll, renderConditions, renderObservations, renderHourly, renderExtended,
-        renderPrecipChart, renderAlmanac, renderAirQuality, renderPollen,
+        renderPrecipChart, renderAlmanac, renderAirQuality,
         renderRadar, renderAlerts, updateTicker
     };
 })();

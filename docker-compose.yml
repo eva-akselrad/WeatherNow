@@ -4,7 +4,7 @@ services:
     container_name: weathernow
     restart: unless-stopped
     ports:
-      - "8080:3000"
+      - "9000:3000"
     volumes:
       - ./music:/app/music:ro
     environment:

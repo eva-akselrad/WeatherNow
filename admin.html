@@ -556,7 +556,7 @@
             </div>
 
             <div class="field-group"
-                style="flex-direction:row;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:18px">
+                style="flex-direction:row;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:8px">
                 <input type="checkbox" id="msg-tts"
                     style="width:18px;height:18px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer" />
                 <div style="flex:1">
@@ -567,8 +567,40 @@
                 </div>
             </div>
 
+            <div class="field-group"
+                style="flex-direction:row;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:18px">
+                <input type="checkbox" id="msg-push"
+                    style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;cursor:pointer" />
+                <div style="flex:1">
+                    <label for="msg-push" style="cursor:pointer;font-size:.88rem;font-weight:600;color:var(--text)">📲
+                        Send as Push Notification</label>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:2px">Pushes to all subscribed devices.
+                        Requires push to be enabled by the viewer.</div>
+                </div>
+            </div>
+
             <button class="send-btn" id="send-btn">📡 SEND ANNOUNCEMENT</button>
             <div id="send-feedback"></div>
+        </div>
+
+        <!-- Push Notifications -->
+        <div class="card">
+            <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+                <span>📲 Push Notifications</span>
+                <span id="push-sub-count" style="font-size:.78rem;color:var(--accent2);font-weight:600">…
+                    subscribers</span>
+            </div>
+            <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px">
+                Send a test push to all subscribed devices. Viewers subscribe via the notification button in Settings.
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="send-btn" id="push-test-btn"
+                    style="flex:1;background:linear-gradient(135deg,var(--accent2),var(--accent))">
+                    🔔 Send Test Push
+                </button>
+                <button class="clear-all-btn" id="push-clear-btn" style="flex:none">Clear All Subs</button>
+            </div>
+            <div id="push-feedback" style="text-align:center;font-size:.82rem;margin-top:10px;min-height:18px"></div>
         </div>
 
         <!-- Active messages -->
@@ -665,10 +697,13 @@
                 // Send
                 sendBtn.addEventListener('click', sendAnnouncement);
                 clearAllBtn.addEventListener('click', clearAll);
+                document.getElementById('push-test-btn').addEventListener('click', sendTestPush);
+                document.getElementById('push-clear-btn').addEventListener('click', clearPushSubs);
 
                 checkHealth();
                 loadMessages();
-                pollTimer = setInterval(loadMessages, 5000);
+                loadPushCount();
+                pollTimer = setInterval(() => { loadMessages(); loadPushCount(); }, 5000);
                 setInterval(checkHealth, 15000);
             }
 
@@ -687,7 +722,8 @@
                             type: selectedType,
                             display: selectedDisplay,
                             duration: parseInt(document.getElementById('msg-duration').value),
-                            tts: document.getElementById('msg-tts').checked
+                            tts: document.getElementById('msg-tts').checked,
+                            push: document.getElementById('msg-push').checked
                         })
                     });
                     if (!r.ok) throw new Error();
@@ -760,6 +796,7 @@
             async function checkHealth() {
                 try {
                     const r = await fetch(`${API}/health`);
+                    const data = await r.json();
                     const ok = r.ok;
                     statusDot.className = ok ? 'ok' : '';
                     statusText.textContent = ok ? 'Server connected' : 'Server error';
@@ -767,6 +804,48 @@
                     statusDot.className = '';
                     statusText.textContent = 'Server unreachable';
                 }
+            }
+
+            async function loadPushCount() {
+                try {
+                    const r = await fetch(`${API}/push/count`, { headers: { 'x-admin-password': adminPassword } });
+                    if (r.ok) {
+                        const { count } = await r.json();
+                        const el = document.getElementById('push-sub-count');
+                        if (el) el.textContent = `${count} subscriber${count !== 1 ? 's' : ''}`;
+                    }
+                } catch { /* ignore */ }
+            }
+
+            async function sendTestPush() {
+                const btn = document.getElementById('push-test-btn');
+                const fb = document.getElementById('push-feedback');
+                btn.disabled = true;
+                try {
+                    const r = await fetch(`${API}/push/send`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+                        body: JSON.stringify({ title: 'S.H.E.L.L.Y. Test', body: 'Push notifications are working! 🌤', type: 'info' })
+                    });
+                    const data = await r.json();
+                    fb.style.color = '#22c55e';
+                    fb.textContent = `✓ Sent to ${data.sent} device(s)${data.failed ? `, ${data.failed} failed` : ''}`;
+                } catch {
+                    fb.style.color = '#ef4444';
+                    fb.textContent = '⚠ Failed to send test push.';
+                } finally {
+                    btn.disabled = false;
+                    setTimeout(() => fb.textContent = '', 5000);
+                }
+            }
+
+            async function clearPushSubs() {
+                if (!confirm('Remove all push subscriptions? Devices will need to re-subscribe.')) return;
+                // We don't have a bulk-clear endpoint, so we fetch count and note it
+                const fb = document.getElementById('push-feedback');
+                fb.style.color = 'var(--muted)';
+                fb.textContent = 'Use the KV dashboard or redeploy to clear subscriptions manually.';
+                setTimeout(() => fb.textContent = '', 6000);
             }
 
             function feedback(msg, color) {

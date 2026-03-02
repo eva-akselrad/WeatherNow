@@ -15,6 +15,13 @@
         rel="stylesheet" />
     <link rel="stylesheet" href="css/weather.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="S.H.E.L.L.Y." />
+    <link rel="apple-touch-icon" href="/assets/favicon.png" />
 </head>
 
 <body class="theme-dark" id="app-body">
@@ -64,7 +71,7 @@
                 <label><input type="checkbox" data-display="precipchart" checked /> Precipitation</label>
                 <label><input type="checkbox" data-display="almanac" checked /> Almanac</label>
                 <label><input type="checkbox" data-display="airquality" checked /> Air Quality</label>
-                <label><input type="checkbox" data-display="pollen" checked /> Pollen &amp; Health</label>
+
                 <label><input type="checkbox" data-display="radar" checked /> Radar</label>
                 <label><input type="checkbox" data-display="alerts" checked /> Severe Alerts</label>
             </div>
@@ -191,6 +198,15 @@
             <button id="btn-copy-permalink" class="btn-primary" style="width: 100%; margin-top: 10px;">📋 Copy
                 Permalink</button>
             <div id="permalink-status" class="status-text" style="text-align: center; margin-top: 5px;"></div>
+        </section>
+
+        <!-- Push Notifications -->
+        <section class="settings-section">
+            <h3>🔔 Push Notifications</h3>
+            <p class="hint-text">Get notified when admin sends alerts, even when the app is in the background.</p>
+            <button id="push-subscribe-btn" class="btn-secondary" style="width:100%;margin-bottom:8px">🔔 Enable
+                Notifications</button>
+            <div id="push-status-text" class="status-text"></div>
         </section>
     </aside>
 
@@ -396,39 +412,6 @@
                 </div>
             </div>
 
-            <!-- Pollen & Health -->
-            <div class="slide hidden" id="slide-pollen" data-display="pollen">
-                <div class="slide-header">
-                    <span class="slide-title">Pollen &amp; Health</span>
-                </div>
-                <div class="pollen-layout">
-                    <div class="pollen-overall">
-                        <div id="pollen-overall-icon" class="pollen-big-icon">🌿</div>
-                        <div id="pollen-overall-label" class="pollen-overall-label">Loading...</div>
-                        <div class="pollen-overall-sub">Overall Pollen Level</div>
-                    </div>
-                    <div class="pollen-grid">
-                        <div class="pollen-card"><span class="pollen-type">🌾 Grass</span><span id="pollen-grass-val"
-                                class="pollen-val">--</span><span id="pollen-grass-lbl" class="pollen-lbl">--</span>
-                        </div>
-                        <div class="pollen-card"><span class="pollen-type">🌳 Birch</span><span id="pollen-birch-val"
-                                class="pollen-val">--</span><span id="pollen-birch-lbl" class="pollen-lbl">--</span>
-                        </div>
-                        <div class="pollen-card"><span class="pollen-type">🌲 Alder</span><span id="pollen-alder-val"
-                                class="pollen-val">--</span><span id="pollen-alder-lbl" class="pollen-lbl">--</span>
-                        </div>
-                        <div class="pollen-card"><span class="pollen-type">🌼 Ragweed</span><span
-                                id="pollen-ragweed-val" class="pollen-val">--</span><span id="pollen-ragweed-lbl"
-                                class="pollen-lbl">--</span></div>
-                        <div class="pollen-card"><span class="pollen-type">🌱 Mugwort</span><span
-                                id="pollen-mugwort-val" class="pollen-val">--</span><span id="pollen-mugwort-lbl"
-                                class="pollen-lbl">--</span></div>
-                        <div class="pollen-card"><span class="pollen-type">🫒 Olive</span><span id="pollen-olive-val"
-                                class="pollen-val">--</span><span id="pollen-olive-lbl" class="pollen-lbl">--</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Radar -->
             <div class="slide hidden" id="slide-radar" data-display="radar">
@@ -521,6 +504,7 @@
     <script src="js/displays.js"></script>
     <script src="js/app.js"></script>
     <script src="js/announcements.js"></script>
+    <script src="js/pwa.js"></script>
 </body>
 
 </html>
