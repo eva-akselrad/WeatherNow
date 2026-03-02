@@ -1,7 +1,15 @@
 {
   "name": "WeatherNow BGM",
-  "description": "Auto-generated on 2026-02-24T20:09:27.070Z — 8 track(s) found.",
+  "description": "Auto-generated on 2026-03-02T22:26:35.373Z — 10 track(s) found.",
   "tracks": [
+    {
+      "title": "Ashtray On The Windowsill(1)",
+      "file": "music/Ashtray On The Windowsill(1).mp3"
+    },
+    {
+      "title": "Ashtray On The Windowsill",
+      "file": "music/Ashtray On The Windowsill.mp3"
+    },
     {
       "title": "Catch the Sun",
       "file": "music/Catch the Sun.mp3"
@@ -17,6 +25,14 @@
     {
       "title": "Crisp day",
       "file": "music/Crisp day.mp3"
+    },
+    {
+      "title": "Midnight Reverie(1)",
+      "file": "music/Midnight Reverie(1).mp3"
+    },
+    {
+      "title": "Midnight Reverie",
+      "file": "music/Midnight Reverie.mp3"
     },
     {
       "title": "Rolling Clouds",
