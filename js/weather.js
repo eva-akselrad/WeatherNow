@@ -369,6 +369,22 @@ const WeatherAPI = (() => {
         currentLat = geo.lat; currentLon = geo.lon; currentLocation = geo.label;
         return geo;
     }
+    async function loadIPLocation() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        try {
+            const resp = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+            if (!resp.ok) throw new Error('IP geolocation failed');
+            const data = await resp.json();
+            if (!data.latitude || !data.longitude) throw new Error('IP geolocation returned no coordinates');
+            currentLat = data.latitude;
+            currentLon = data.longitude;
+            currentLocation = [data.city, data.region].filter(Boolean).join(', ') || 'Your Location';
+            return { lat: currentLat, lon: currentLon, label: currentLocation };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
     async function loadGPS() {
         return new Promise((res, rej) => {
             if (!navigator.geolocation) return rej(new Error('Geolocation not supported'));
@@ -395,5 +411,5 @@ const WeatherAPI = (() => {
     function getData() { return weatherData; }
     function getAlerts() { return alertsData; }
 
-    return { loadLocation, loadGPS, fetchAll, setUnits, getLocation, getData, getAlerts };
+    return { loadLocation, loadIPLocation, loadGPS, fetchAll, setUnits, getLocation, getData, getAlerts };
 })();

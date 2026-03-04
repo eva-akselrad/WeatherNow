@@ -423,11 +423,31 @@
             if (locationInput) locationInput.value = saved.query;
             await setLocation(saved.query);
         } else {
-            // Default to GPS, fallback to New York
+            // First, use IP geolocation as an instant initial estimate (no permission required)
+            let ipSuccess = false;
             try {
-                await setLocationGPS();
+                await WeatherAPI.loadIPLocation();
+                locationSet = true;
+                if (locationStatus) locationStatus.textContent = `✓ Set to: ${WeatherAPI.getLocation().label}`;
+                fetchAndRender(true).catch(err => console.error('Weather fetch error after IP geolocation:', err));
+                ipSuccess = true;
             } catch {
-                await setLocation(DEFAULT_LOCATION);
+                // IP geolocation unavailable; fall through to GPS
+            }
+
+            // Then try GPS for a more precise location
+            if (ipSuccess) {
+                // Weather is already loading; refine in the background without blocking
+                setLocationGPS().catch(err => {
+                    console.warn('GPS refinement failed, keeping IP-based location:', err);
+                });
+            } else {
+                // No IP estimate available – must wait for GPS or fall back to default
+                try {
+                    await setLocationGPS();
+                } catch {
+                    await setLocation(DEFAULT_LOCATION);
+                }
             }
         }
 
