@@ -614,6 +614,17 @@
             </div>
         </div>
 
+        <div class="card" id="security-card">
+            <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+                <span>🔒 Security Log</span>
+                <button class="send-btn" id="sec-refresh-btn" style="padding:6px 14px;font-size:.78rem">↻ Refresh</button>
+            </div>
+            <div id="sec-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:.78rem"></div>
+            <div id="sec-events" style="max-height:260px;overflow-y:auto;font-size:.75rem;font-family:'Roboto Mono',monospace">
+                <div class="no-msgs">Loading…</div>
+            </div>
+        </div>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -699,12 +710,15 @@
                 clearAllBtn.addEventListener('click', clearAll);
                 document.getElementById('push-test-btn').addEventListener('click', sendTestPush);
                 document.getElementById('push-clear-btn').addEventListener('click', clearPushSubs);
+                document.getElementById('sec-refresh-btn').addEventListener('click', loadSecurityLog);
 
                 checkHealth();
                 loadMessages();
                 loadPushCount();
+                loadSecurityLog();
                 pollTimer = setInterval(() => { loadMessages(); loadPushCount(); }, 5000);
                 setInterval(checkHealth, 15000);
+                setInterval(loadSecurityLog, 30000);
             }
 
             async function sendAnnouncement() {
@@ -846,6 +860,43 @@
                 fb.style.color = 'var(--muted)';
                 fb.textContent = 'Use the KV dashboard or redeploy to clear subscriptions manually.';
                 setTimeout(() => fb.textContent = '', 6000);
+            }
+
+            async function loadSecurityLog() {
+                const evEl = document.getElementById('sec-events');
+                const statsEl = document.getElementById('sec-stats');
+                try {
+                    const [evRes, stRes] = await Promise.all([
+                        fetch(`${API}/security/events?limit=50`, { headers: { 'x-admin-password': adminPassword } }),
+                        fetch(`${API}/security/stats`,            { headers: { 'x-admin-password': adminPassword } })
+                    ]);
+                    if (!evRes.ok || !stRes.ok) { evEl.innerHTML = '<div class="no-msgs">Unavailable</div>'; return; }
+                    const { events } = await evRes.json();
+                    const { counts, lockedIps, totalEvents } = await stRes.json();
+
+                    // Stats chips
+                    const colors = { auth_failure: '#ef4444', auth_success: '#22c55e', rate_limited: '#f59e0b', honeypot: '#a855f7', lockout: '#ef4444' };
+                    statsEl.innerHTML = Object.entries(counts).map(([k, v]) =>
+                        `<span style="background:${colors[k] || 'var(--card2)'};color:#fff;padding:3px 9px;border-radius:20px;white-space:nowrap">${k}: ${v}</span>`
+                    ).join('') + (lockedIps.length ? `<span style="background:#ef4444;color:#fff;padding:3px 9px;border-radius:20px">🔒 ${lockedIps.length} locked IP(s)</span>` : '');
+                    if (!Object.keys(counts).length) statsEl.innerHTML = '<span style="color:var(--muted)">No events yet</span>';
+
+                    // Event rows
+                    if (!events.length) { evEl.innerHTML = '<div class="no-msgs">No security events recorded</div>'; return; }
+                    const typeIcon = { auth_failure: '⚠️', auth_success: '✅', rate_limited: '🚦', honeypot: '🍯', lockout: '🔒' };
+                    evEl.innerHTML = events.map(e => {
+                        const time = new Date(e.ts).toLocaleTimeString();
+                        return `<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+                            <span style="color:var(--muted);flex:0 0 60px">${time}</span>
+                            <span style="flex:0 0 16px">${typeIcon[e.type] || '•'}</span>
+                            <span style="color:${colors[e.type] || 'var(--text)'};flex:0 0 100px;overflow:hidden;text-overflow:ellipsis">${esc(e.type)}</span>
+                            <span style="color:var(--accent2);flex:0 0 110px;overflow:hidden;text-overflow:ellipsis">${esc(e.ip)}</span>
+                            <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis">${esc(e.path)}${e.detail ? ' · ' + esc(e.detail) : ''}</span>
+                        </div>`;
+                    }).join('');
+                } catch {
+                    evEl.innerHTML = '<div class="no-msgs">Could not load security log</div>';
+                }
             }
 
             function feedback(msg, color) {

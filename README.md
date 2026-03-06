@@ -18,6 +18,64 @@ A modern, real-time weather client inspired by WeatherStar 4000. Vanilla HTML/CS
 
 ---
 
+## 🔒 Security Features
+
+S.H.E.L.L.Y. includes several layered defenses that demonstrate common web-application security concepts.
+
+### HTTP Security Headers
+
+Every response is sent with a hardened set of headers:
+
+| Header | Value / Purpose |
+|--------|----------------|
+| `Content-Security-Policy` | Restricts script sources to `self` and a trusted CDN; blocks inline scripts loaded from external origins; restricts image and API connection sources |
+| `X-Frame-Options` | `SAMEORIGIN` — prevents clickjacking by blocking the page from being embedded in a foreign `<iframe>` |
+| `X-Content-Type-Options` | `nosniff` — stops browsers from MIME-sniffing a response away from its declared Content-Type |
+| `X-XSS-Protection` | `1; mode=block` — legacy IE/Edge XSS auditor safety net |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` — limits referer leakage to cross-origin requests |
+| `Permissions-Policy` | Disables camera, microphone, geolocation, and payment APIs |
+| `Strict-Transport-Security` | 1-year HSTS; effective when served over TLS/HTTPS |
+
+### Rate Limiting
+
+All `/api/*` routes are protected by a per-IP sliding-window rate limiter (60 requests per minute).  
+Responses include standard `X-RateLimit-*` headers so clients can see their usage.  
+Exceeding the limit returns **HTTP 429** with a descriptive JSON error.
+
+### Brute-Force / Account-Lockout Protection
+
+Admin authentication routes track failed password attempts per source IP.  
+After **5 consecutive failures** the IP is **locked out for 15 minutes** and every subsequent request returns HTTP 429 with a `Retry-After` header.  
+A successful login resets the counter.
+
+### Security Event Logging
+
+All notable security events are captured in an in-memory ring buffer (last 500 events) and tagged with a timestamp, source IP, path, user-agent, and event type:
+
+| Event type | Meaning |
+|------------|---------|
+| `auth_success` | Admin password accepted |
+| `auth_failure` | Wrong password provided |
+| `lockout` | IP locked out after repeated failures |
+| `rate_limited` | Request rejected by the rate limiter |
+| `honeypot` | Request hit the honeypot endpoint |
+
+Events are visible in the **Admin Panel → 🔒 Security Log** section (auto-refreshes every 30 s).
+
+### Honeypot Endpoint
+
+`/api/admin-backdoor` is a **honeypot** — a path that looks attractive to automated scanners but serves no legitimate function.  
+Any hit is immediately logged as a `honeypot` event, making it easy to spot port-scans, vulnerability probes, and poorly-written bots.
+
+### Security API Endpoints (admin-only)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/security/events?limit=N` | Returns the last N security events |
+| `GET` | `/api/security/stats` | Returns event-type counts and currently-locked IPs |
+
+---
+
 ## 🐳 Running with Docker (Local or Server)
 
 > **Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
