@@ -63,7 +63,7 @@ let pushSubscriptions = []; // { endpoint, keys: { auth, p256dh } }
 let releaseNotes = [];
 let releaseNoteId = 1;
 
-let customForecast = { periods: [], updatedAt: null };
+let customForecast = { periods: [], targeting: { mode: 'all' }, updatedAt: null };
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'weathernow';
 
@@ -268,15 +268,15 @@ app.get('/api/custom-forecast', (_, res) => {
 
 app.post('/api/custom-forecast', adminLimiter, (req, res) => {
     if (!checkAuth(req, res)) return;
-    const { periods = [] } = req.body;
-    customForecast = { periods, updatedAt: Date.now() };
-    console.log(`[Admin] Custom forecast updated: ${periods.length} period(s)`);
+    const { periods = [], targeting = { mode: 'all' } } = req.body;
+    customForecast = { periods, targeting, updatedAt: Date.now() };
+    console.log(`[Admin] Custom forecast updated: ${periods.length} period(s), targeting: ${targeting.mode}`);
     res.json(customForecast);
 });
 
 app.delete('/api/custom-forecast', adminLimiter, (req, res) => {
     if (!checkAuth(req, res)) return;
-    customForecast = { periods: [], updatedAt: null };
+    customForecast = { periods: [], targeting: { mode: 'all' }, updatedAt: null };
     res.json({ ok: true });
 });
 

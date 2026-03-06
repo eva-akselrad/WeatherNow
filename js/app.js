@@ -126,10 +126,14 @@
             }
         }
 
-        // Custom Forecast slide – skip if no periods have been published
+        // Custom Forecast slide – skip if no periods or viewer's location doesn't match targeting
         if (target.display === 'customforecast') {
             const cf = WeatherAPI.getData()?.customForecast;
             if (!cf?.periods?.length) {
+                setTimeout(() => goToSlide((idx + 1) % slideIds.length), 50);
+                return;
+            }
+            if (!isInForecastArea(cf.targeting)) {
                 setTimeout(() => goToSlide((idx + 1) % slideIds.length), 50);
                 return;
             }
@@ -469,6 +473,53 @@
         if (autoKiosk) {
             Settings.enterKiosk();
         }
+    }
+
+    // ── Custom Forecast Location Targeting ─────────────────────────
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 3958.8; // Earth radius in miles
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function isInForecastArea(targeting) {
+        if (!targeting || targeting.mode === 'all') return true;
+        const loc = WeatherAPI.getLocation();
+        if (!loc.lat) return true; // no viewer location → show by default
+
+        if (targeting.mode === 'radius') {
+            const c = targeting.center;
+            const r = parseFloat(targeting.radiusMiles);
+            if (!c?.lat || !c?.lon || !r) return true;
+            return haversineDistance(loc.lat, loc.lon, c.lat, c.lon) <= r;
+        }
+
+        if (targeting.mode === 'zips') {
+            const zips = (targeting.zips || []).map(z => String(z).trim()).filter(Boolean);
+            if (!zips.length) return true;
+            const details = WeatherAPI.getLocationDetails();
+            if (!details?.zip) return true; // details not yet loaded → show
+            return zips.includes(String(details.zip).trim());
+        }
+
+        if (targeting.mode === 'counties') {
+            const counties = (targeting.counties || []).map(c => c.trim().toLowerCase()).filter(Boolean);
+            if (!counties.length) return true;
+            const details = WeatherAPI.getLocationDetails();
+            if (!details?.county) return true;
+            // Build a normalized "County Name ST" string for exact-match comparison
+            const viewerToken = `${details.county} ${details.stateCode || ''}`.trim().toLowerCase();
+            return counties.some(c => {
+                // Exact match on the full "County Name ST" token
+                const adminToken = c.toLowerCase().trim();
+                return viewerToken === adminToken || viewerToken.startsWith(adminToken + ' ') || adminToken.startsWith(viewerToken + ' ');
+            });
+        }
+
+        return true;
     }
 
     // ── Start ──────────────────────────────────────────────────────

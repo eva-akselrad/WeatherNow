@@ -10,6 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap"
         rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <style>
         *,
         *::before,
@@ -658,6 +659,72 @@
                 display: none;
             }
         }
+
+        /* ── Forecast Targeting ─────────────────────────────────── */
+        .fc-target-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .fc-target-tab {
+            padding: 7px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: .78rem;
+            font-weight: 600;
+            transition: all .2s;
+            white-space: nowrap;
+        }
+
+        .fc-target-tab:hover {
+            border-color: var(--accent2);
+            color: var(--text);
+        }
+
+        .fc-target-tab.active {
+            border-color: var(--accent2);
+            background: rgba(6, 182, 212, .12);
+            color: var(--accent2);
+        }
+
+        .fc-target-panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+        #fc-radius-map {
+            height: 220px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+
+        .fc-target-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        .fc-target-badge {
+            display: inline-block;
+            font-size: .65rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(6,182,212,.15);
+            color: var(--accent2);
+            border: 1px solid rgba(6,182,212,.3);
+            font-weight: 600;
+            letter-spacing: .06em;
+            margin-left: 6px;
+        }
     </style>
 </head>
 
@@ -861,6 +928,69 @@
 
             <button class="fc-add-btn" id="fc-add-btn">＋ Add Forecast Period</button>
 
+            <!-- Target Area -->
+            <div style="margin-bottom:16px">
+                <div class="card-title" style="margin-bottom:12px">📍 Target Area <span id="fc-target-badge" class="fc-target-badge">All Viewers</span></div>
+                <p style="font-size:.75rem;color:var(--muted);margin-bottom:12px">Restrict who sees this forecast by
+                    location. Select a map area, ZIP codes, or counties — or leave as All Viewers to show everywhere.</p>
+
+                <div class="fc-target-tabs">
+                    <div class="fc-target-tab active" data-tmode="all">🌍 All Viewers</div>
+                    <div class="fc-target-tab" data-tmode="radius">📍 Map Area</div>
+                    <div class="fc-target-tab" data-tmode="zips">🏷 ZIP Codes</div>
+                    <div class="fc-target-tab" data-tmode="counties">🗺 Counties</div>
+                </div>
+
+                <!-- All -->
+                <div class="fc-target-panel" id="fc-target-all">
+                    <div style="font-size:.82rem;color:var(--muted)">This forecast will be visible to <strong
+                            style="color:var(--text)">all viewers</strong> regardless of their location.</div>
+                </div>
+
+                <!-- Radius / Map Area -->
+                <div class="fc-target-panel" id="fc-target-radius" style="display:none">
+                    <p style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Click the map to place a center
+                        point, then set the radius in miles. The forecast will show for viewers inside that circle.</p>
+                    <div id="fc-radius-map"></div>
+                    <div class="fc-target-grid">
+                        <div class="fc-field">
+                            <label>Center Lat</label>
+                            <input type="number" id="fc-radius-lat" step="0.0001" placeholder="e.g. 37.77" />
+                        </div>
+                        <div class="fc-field">
+                            <label>Center Lon</label>
+                            <input type="number" id="fc-radius-lon" step="0.0001" placeholder="e.g. -122.42" />
+                        </div>
+                        <div class="fc-field">
+                            <label>Radius (miles)</label>
+                            <input type="number" id="fc-radius-mi" min="1" max="1000" placeholder="e.g. 50" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ZIP Codes -->
+                <div class="fc-target-panel" id="fc-target-zips" style="display:none">
+                    <div class="fc-field">
+                        <label>ZIP Codes — comma-separated</label>
+                        <input type="text" id="fc-zip-input"
+                            placeholder="e.g. 90210, 10001, 60601" />
+                    </div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:8px">The forecast will only appear for
+                        viewers whose location reverse-geocodes to one of these ZIP codes.</div>
+                </div>
+
+                <!-- Counties -->
+                <div class="fc-target-panel" id="fc-target-counties" style="display:none">
+                    <div class="fc-field">
+                        <label>Counties — comma-separated (include state abbreviation)</label>
+                        <input type="text" id="fc-county-input"
+                            placeholder="e.g. Jefferson County AL, Cook County IL, Los Angeles County CA" />
+                    </div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:8px">The forecast will show for viewers
+                        whose county matches any entry in this list.</div>
+                </div>
+            </div>
+
             <div class="fc-btn-row">
                 <button class="send-btn" id="fc-publish-btn" style="flex:1">📡 PUBLISH FORECAST</button>
                 <button class="fc-clear-btn" id="fc-clear-btn">Clear Forecast</button>
@@ -876,6 +1006,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script>
         (function () {
             const API = '/api';
@@ -966,9 +1097,10 @@
                 document.getElementById('rn-date').value = new Date().toLocaleDateString();
 
                 // Custom Forecast
-                document.getElementById('fc-add-btn').addEventListener('click', addFcPeriod);
+                document.getElementById('fc-add-btn').addEventListener('click', () => addFcPeriod());
                 document.getElementById('fc-publish-btn').addEventListener('click', publishForecast);
                 document.getElementById('fc-clear-btn').addEventListener('click', clearForecast);
+                initTargetingUI();
 
                 checkHealth();
                 loadMessages();
@@ -1258,13 +1390,14 @@
                 });
                 if (hasError) { fcFeedback('⚠ All period rows need a name.', '#f59e0b'); return; }
                 if (!periods.length) { fcFeedback('⚠ Add at least one forecast period.', '#f59e0b'); return; }
+                const targeting = getTargetingData();
                 const btn = document.getElementById('fc-publish-btn');
                 btn.disabled = true;
                 try {
                     const r = await fetch(`${API}/custom-forecast`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-                        body: JSON.stringify({ periods })
+                        body: JSON.stringify({ periods, targeting })
                     });
                     if (!r.ok) throw new Error();
                     playChime();
@@ -1285,6 +1418,7 @@
                     });
                     fcFeedback('✓ Forecast cleared.', '#22c55e');
                     document.getElementById('fc-periods').innerHTML = '';
+                    setTargetingMode('all');
                     loadCustomForecast();
                 } catch {
                     fcFeedback('⚠ Failed to clear forecast.', '#ef4444');
@@ -1302,6 +1436,8 @@
                     if (periodsEl && !periodsEl.children.length && cf.periods?.length) {
                         cf.periods.forEach(p => addFcPeriod(p));
                     }
+                    // Restore targeting state
+                    if (cf.targeting) restoreTargeting(cf.targeting);
                 } catch { /* ignore */ }
             }
 
@@ -1312,6 +1448,7 @@
                 if (!cf?.periods?.length) { preview.style.display = 'none'; return; }
                 preview.style.display = 'block';
                 const updated = cf.updatedAt ? ` — Updated ${new Date(cf.updatedAt).toLocaleString()}` : '';
+                const targetingLabel = targetingSummary(cf.targeting);
                 list.innerHTML = cf.periods.map(p =>
                     `<div style="padding:4px 0;border-bottom:1px solid var(--border)">
                         <strong>${esc(p.name)}</strong>${p.icon ? ` ${esc(p.icon)}` : ''}
@@ -1320,7 +1457,133 @@
                         ${p.precip ? ` · 💧${esc(String(p.precip))}%` : ''}
                         ${p.wind ? ` · 💨${esc(p.wind)}` : ''}
                     </div>`
-                ).join('') + `<div style="font-size:.65rem;color:var(--muted);margin-top:6px">${esc(updated)}</div>`;
+                ).join('') + `<div style="font-size:.65rem;color:var(--muted);margin-top:6px">📍 ${esc(targetingLabel)}${esc(updated)}</div>`;
+            }
+
+            function targetingSummary(t) {
+                if (!t || t.mode === 'all') return 'All Viewers';
+                if (t.mode === 'radius') {
+                    const c = t.center;
+                    if (c?.lat && c?.lon) return `Within ${t.radiusMiles || 'unset'} mi of (${parseFloat(c.lat).toFixed(3)}, ${parseFloat(c.lon).toFixed(3)})`;
+                    return 'Map Area (not configured)';
+                }
+                if (t.mode === 'zips') return `ZIP codes: ${(t.zips || []).join(', ') || 'none'}`;
+                if (t.mode === 'counties') return `Counties: ${(t.counties || []).join(', ') || 'none'}`;
+                return 'All Viewers';
+            }
+
+            // ── Targeting UI ───────────────────────────────────────────
+            let fcTargetMode = 'all';
+            let fcRadiusMap = null, fcRadiusMarker = null, fcRadiusCircle = null;
+
+            function initTargetingUI() {
+                document.querySelectorAll('.fc-target-tab').forEach(tab => {
+                    tab.addEventListener('click', () => setTargetingMode(tab.dataset.tmode));
+                });
+
+                // Sync lat/lon inputs → map circle
+                ['fc-radius-lat', 'fc-radius-lon', 'fc-radius-mi'].forEach(id => {
+                    document.getElementById(id)?.addEventListener('input', syncRadiusCircle);
+                });
+            }
+
+            function setTargetingMode(mode) {
+                fcTargetMode = mode;
+                document.querySelectorAll('.fc-target-tab').forEach(t => t.classList.toggle('active', t.dataset.tmode === mode));
+                ['all', 'radius', 'zips', 'counties'].forEach(m => {
+                    const el = document.getElementById(`fc-target-${m}`);
+                    if (el) el.style.display = m === mode ? '' : 'none';
+                });
+                updateTargetBadge(mode);
+                if (mode === 'radius') initRadiusMap();
+            }
+
+            function updateTargetBadge(mode) {
+                const badge = document.getElementById('fc-target-badge');
+                if (!badge) return;
+                const labels = { all: 'All Viewers', radius: 'Map Area', zips: 'ZIP Codes', counties: 'Counties' };
+                badge.textContent = labels[mode] || 'All Viewers';
+            }
+
+            function initRadiusMap() {
+                if (fcRadiusMap) { fcRadiusMap.invalidateSize(); return; }
+                if (typeof L === 'undefined') return;
+                const container = document.getElementById('fc-radius-map');
+                if (!container) return;
+                fcRadiusMap = L.map(container, { zoomControl: true }).setView([39.5, -98.35], 4);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors', maxZoom: 18
+                }).addTo(fcRadiusMap);
+                fcRadiusMap.on('click', e => {
+                    const { lat, lng } = e.latlng;
+                    document.getElementById('fc-radius-lat').value = lat.toFixed(5);
+                    document.getElementById('fc-radius-lon').value = lng.toFixed(5);
+                    syncRadiusCircle();
+                });
+                // Init from existing inputs
+                syncRadiusCircle();
+            }
+
+            function syncRadiusCircle() {
+                if (!fcRadiusMap || typeof L === 'undefined') return;
+                const lat = parseFloat(document.getElementById('fc-radius-lat')?.value);
+                const lon = parseFloat(document.getElementById('fc-radius-lon')?.value);
+                const mi = parseFloat(document.getElementById('fc-radius-mi')?.value);
+                if (fcRadiusMarker) { fcRadiusMap.removeLayer(fcRadiusMarker); fcRadiusMarker = null; }
+                if (fcRadiusCircle) { fcRadiusMap.removeLayer(fcRadiusCircle); fcRadiusCircle = null; }
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    const METERS_PER_MILE = 1609.344;
+                    fcRadiusMarker = L.marker([lat, lon]).addTo(fcRadiusMap);
+                    if (!isNaN(mi) && mi > 0) {
+                        fcRadiusCircle = L.circle([lat, lon], { radius: mi * METERS_PER_MILE, color: '#06b6d4', fillOpacity: 0.12 }).addTo(fcRadiusMap);
+                        fcRadiusMap.fitBounds(fcRadiusCircle.getBounds(), { maxZoom: 10 });
+                    } else {
+                        fcRadiusMap.setView([lat, lon], 8);
+                    }
+                }
+            }
+
+            function getTargetingData() {
+                const mode = fcTargetMode;
+                if (mode === 'all') return { mode: 'all' };
+                if (mode === 'radius') {
+                    const lat = parseFloat(document.getElementById('fc-radius-lat')?.value);
+                    const lon = parseFloat(document.getElementById('fc-radius-lon')?.value);
+                    const mi = parseFloat(document.getElementById('fc-radius-mi')?.value);
+                    return {
+                        mode: 'radius',
+                        center: (!isNaN(lat) && !isNaN(lon)) ? { lat, lon } : null,
+                        radiusMiles: !isNaN(mi) ? mi : null
+                    };
+                }
+                if (mode === 'zips') {
+                    const raw = document.getElementById('fc-zip-input')?.value || '';
+                    return { mode: 'zips', zips: raw.split(',').map(z => z.trim()).filter(Boolean) };
+                }
+                if (mode === 'counties') {
+                    const raw = document.getElementById('fc-county-input')?.value || '';
+                    return { mode: 'counties', counties: raw.split(',').map(c => c.trim()).filter(Boolean) };
+                }
+                return { mode: 'all' };
+            }
+
+            function restoreTargeting(t) {
+                if (!t) return;
+                setTargetingMode(t.mode || 'all');
+                if (t.mode === 'radius') {
+                    if (t.center?.lat) document.getElementById('fc-radius-lat').value = t.center.lat;
+                    if (t.center?.lon) document.getElementById('fc-radius-lon').value = t.center.lon;
+                    if (t.radiusMiles) document.getElementById('fc-radius-mi').value = t.radiusMiles;
+                    syncRadiusCircle();
+                }
+                if (t.mode === 'zips' && t.zips?.length) {
+                    const el = document.getElementById('fc-zip-input');
+                    if (el) el.value = t.zips.join(', ');
+                }
+                if (t.mode === 'counties' && t.counties?.length) {
+                    const el = document.getElementById('fc-county-input');
+                    if (el) el.value = t.counties.join(', ');
+                }
             }
 
             function fcFeedback(msg, color) {
