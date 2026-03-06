@@ -9,6 +9,7 @@ const WeatherAPI = (() => {
     let currentLocation = '';
     let useFahrenheit = true;
     let weatherData = {}, alertsData = [];
+    let locationDetails = null; // { zip, county, state, stateCode }
 
     // ── Geocoding ─────────────────────────────────────────────────
     async function geocode(query) {
@@ -28,6 +29,29 @@ const WeatherAPI = (() => {
         if (!resp.ok) throw new Error('Reverse geocoding failed');
         const data = await resp.json(), addr = data.address;
         return [addr.city || addr.town || addr.village || addr.county, addr.state].filter(Boolean).join(', ');
+    }
+
+    // ── Fetch ZIP + county details for targeting ──────────────────
+    async function fetchLocationDetails(lat, lon) {
+        try {
+            const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`;
+            const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            const addr = data.address || {};
+            const stateCode = addr.state_code || (() => {
+                const iso = addr['ISO3166-2-lvl4'];
+                if (!iso || typeof iso !== 'string') return null;
+                const parts = iso.split('-');
+                return parts.length === 2 ? parts[1] : null;
+            })();
+            return {
+                zip: addr.postcode || null,
+                county: addr.county || addr.state_district || null,
+                state: addr.state || null,
+                stateCode: stateCode || null
+            };
+        } catch { return null; }
     }
 
     // ── Main Weather Fetch (Open-Meteo) ───────────────────────────
@@ -367,7 +391,27 @@ const WeatherAPI = (() => {
     async function loadLocation(query) {
         const geo = await geocode(query);
         currentLat = geo.lat; currentLon = geo.lon; currentLocation = geo.label;
+        locationDetails = null;
+        fetchLocationDetails(currentLat, currentLon).then(d => { locationDetails = d; }).catch(() => {});
         return geo;
+    }
+    async function loadIPLocation() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        try {
+            const resp = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+            if (!resp.ok) throw new Error('IP geolocation failed');
+            const data = await resp.json();
+            if (!data.latitude || !data.longitude) throw new Error('IP geolocation returned no coordinates');
+            currentLat = data.latitude;
+            currentLon = data.longitude;
+            currentLocation = [data.city, data.region].filter(Boolean).join(', ') || 'Your Location';
+            locationDetails = null;
+            fetchLocationDetails(currentLat, currentLon).then(d => { locationDetails = d; }).catch(() => {});
+            return { lat: currentLat, lon: currentLon, label: currentLocation };
+        } finally {
+            clearTimeout(timer);
+        }
     }
     async function loadGPS() {
         return new Promise((res, rej) => {
@@ -375,25 +419,30 @@ const WeatherAPI = (() => {
             navigator.geolocation.getCurrentPosition(async pos => {
                 currentLat = pos.coords.latitude; currentLon = pos.coords.longitude;
                 try { currentLocation = await reverseGeocode(currentLat, currentLon); } catch { currentLocation = 'Your Location'; }
+                locationDetails = null;
+                fetchLocationDetails(currentLat, currentLon).then(d => { locationDetails = d; }).catch(() => {});
                 res({ lat: currentLat, lon: currentLon, label: currentLocation });
             }, rej);
         });
     }
     async function fetchAll() {
         if (!currentLat) throw new Error('No location set');
-        const [raw, aq, alerts] = await Promise.all([
+        const [raw, aq, alerts, cf] = await Promise.all([
             fetchWeather(currentLat, currentLon),
             fetchAirQuality(currentLat, currentLon),
-            fetchAlerts(currentLat, currentLon)
+            fetchAlerts(currentLat, currentLon),
+            fetch('/api/custom-forecast', { cache: 'no-store' }).then(r => r.ok ? r.json() : { periods: [], updatedAt: null }).catch(() => ({ periods: [], updatedAt: null }))
         ]);
         weatherData = processData(raw, aq);
+        weatherData.customForecast = cf;
         alertsData = alerts;
         return { weather: weatherData, alerts: alertsData };
     }
     function setUnits(f) { useFahrenheit = f; }
     function getLocation() { return { lat: currentLat, lon: currentLon, label: currentLocation }; }
+    function getLocationDetails() { return locationDetails; }
     function getData() { return weatherData; }
     function getAlerts() { return alertsData; }
 
-    return { loadLocation, loadGPS, fetchAll, setUnits, getLocation, getData, getAlerts };
+    return { loadLocation, loadIPLocation, loadGPS, fetchAll, setUnits, getLocation, getLocationDetails, getData, getAlerts };
 })();

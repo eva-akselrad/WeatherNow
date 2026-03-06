@@ -7,6 +7,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const webPush = require('web-push');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 app.use(express.json());
@@ -59,7 +60,27 @@ let messages = [];
 let nextId = 1;
 let pushSubscriptions = []; // { endpoint, keys: { auth, p256dh } }
 
+let releaseNotes = [];
+let releaseNoteId = 1;
+
+let customForecast = { periods: [], targeting: { mode: 'all' }, updatedAt: null };
+
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'weathernow';
+
+// ── Rate limiter (admin routes) ────────────────────────────────
+const adminLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests' }
+});
+app.use('/api/verify', adminLimiter);
+app.use('/api/announce', adminLimiter);
+app.use('/api/messages', adminLimiter);
+app.use('/api/push', adminLimiter);
+app.use('/api/release-notes', adminLimiter);
+app.use('/api/custom-forecast', adminLimiter);
 
 // ── Auth helper ────────────────────────────────────────────────
 function checkAuth(req, res) {
@@ -211,6 +232,53 @@ app.get('/api/health', (_, res) => res.json({
     uptime: process.uptime(),
     pushSubscribers: pushSubscriptions.length
 }));
+
+// ── Release Notes ─────────────────────────────────────────────
+app.get('/api/release-notes', adminLimiter, (req, res) => {
+    if (!checkAuth(req, res)) return;
+    res.json(releaseNotes);
+});
+
+app.post('/api/release-notes', adminLimiter, (req, res) => {
+    if (!checkAuth(req, res)) return;
+    const { version = '', notes = '' } = req.body;
+    if (!notes.trim()) return res.status(400).json({ error: 'notes required' });
+    const note = { id: releaseNoteId++, version: version.trim(), notes: notes.trim(), created: Date.now() };
+    releaseNotes.unshift(note);
+    console.log(`[Admin] Release note posted: ${version}`);
+    res.json(note);
+});
+
+app.delete('/api/release-notes/:id', adminLimiter, (req, res) => {
+    if (!checkAuth(req, res)) return;
+    releaseNotes = releaseNotes.filter(n => n.id !== parseInt(req.params.id));
+    res.json({ ok: true });
+});
+
+app.delete('/api/release-notes', adminLimiter, (req, res) => {
+    if (!checkAuth(req, res)) return;
+    releaseNotes = [];
+    res.json({ ok: true });
+});
+
+// ── Custom Forecast ───────────────────────────────────────────
+app.get('/api/custom-forecast', (_, res) => {
+    res.json(customForecast);
+});
+
+app.post('/api/custom-forecast', adminLimiter, (req, res) => {
+    if (!checkAuth(req, res)) return;
+    const { periods = [], targeting = { mode: 'all' } } = req.body;
+    customForecast = { periods, targeting, updatedAt: Date.now() };
+    console.log(`[Admin] Custom forecast updated: ${periods.length} period(s), targeting: ${targeting.mode}`);
+    res.json(customForecast);
+});
+
+app.delete('/api/custom-forecast', adminLimiter, (req, res) => {
+    if (!checkAuth(req, res)) return;
+    customForecast = { periods: [], targeting: { mode: 'all' }, updatedAt: null };
+    res.json({ ok: true });
+});
 
 // ── Start ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;

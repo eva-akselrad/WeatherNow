@@ -74,6 +74,7 @@
 
                 <label><input type="checkbox" data-display="radar" checked /> Radar</label>
                 <label><input type="checkbox" data-display="alerts" checked /> Severe Alerts</label>
+                <label><input type="checkbox" data-display="customforecast" checked /> Custom Forecast</label>
             </div>
         </section>
 
@@ -447,6 +448,16 @@
                 <div id="alerts-container" class="alerts-container">
                     <div class="no-alerts">✅ No active severe weather alerts for this area.</div>
                 </div>
+            </div>
+
+            <!-- Custom Forecast -->
+            <div class="slide hidden" id="slide-customforecast" data-display="customforecast">
+                <div class="slide-header">
+                    <span class="slide-title">Custom Forecast</span>
+                    <span class="slide-badge" style="background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.3)">CUSTOM</span>
+                </div>
+                <div id="customforecast-container" class="extended-container"></div>
+                <div id="customforecast-updated" style="text-align:center;font-size:0.65rem;color:var(--text-secondary);margin-top:8px;padding-bottom:4px"></div>
             </div>
 
         </div><!-- /slide-viewport -->

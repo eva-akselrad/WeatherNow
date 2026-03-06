@@ -67,6 +67,7 @@
             { id: 'slide-pollen', display: 'pollen', label: 'POLLEN' },
             { id: 'slide-radar', display: 'radar', label: 'RADAR' },
             { id: 'slide-alerts', display: 'alerts', label: 'ALERTS' },
+            { id: 'slide-customforecast', display: 'customforecast', label: 'CUSTOM FORECAST' },
         ];
 
         slideIds = allSlides.filter(s => active.includes(s.display));
@@ -120,6 +121,19 @@
         if (target.display === 'alerts') {
             const alerts = WeatherAPI.getAlerts();
             if (!alerts.length) {
+                setTimeout(() => goToSlide((idx + 1) % slideIds.length), 50);
+                return;
+            }
+        }
+
+        // Custom Forecast slide – skip if no periods or viewer's location doesn't match targeting
+        if (target.display === 'customforecast') {
+            const cf = WeatherAPI.getData()?.customForecast;
+            if (!cf?.periods?.length) {
+                setTimeout(() => goToSlide((idx + 1) % slideIds.length), 50);
+                return;
+            }
+            if (!isInForecastArea(cf.targeting)) {
                 setTimeout(() => goToSlide((idx + 1) % slideIds.length), 50);
                 return;
             }
@@ -423,11 +437,31 @@
             if (locationInput) locationInput.value = saved.query;
             await setLocation(saved.query);
         } else {
-            // Default to GPS, fallback to New York
+            // First, use IP geolocation as an instant initial estimate (no permission required)
+            let ipSuccess = false;
             try {
-                await setLocationGPS();
+                await WeatherAPI.loadIPLocation();
+                locationSet = true;
+                if (locationStatus) locationStatus.textContent = `✓ Set to: ${WeatherAPI.getLocation().label}`;
+                fetchAndRender(true).catch(err => console.error('Weather fetch error after IP geolocation:', err));
+                ipSuccess = true;
             } catch {
-                await setLocation(DEFAULT_LOCATION);
+                // IP geolocation unavailable; fall through to GPS
+            }
+
+            // Then try GPS for a more precise location
+            if (ipSuccess) {
+                // Weather is already loading; refine in the background without blocking
+                setLocationGPS().catch(err => {
+                    console.warn('GPS refinement failed, keeping IP-based location:', err);
+                });
+            } else {
+                // No IP estimate available – must wait for GPS or fall back to default
+                try {
+                    await setLocationGPS();
+                } catch {
+                    await setLocation(DEFAULT_LOCATION);
+                }
             }
         }
 
@@ -439,6 +473,53 @@
         if (autoKiosk) {
             Settings.enterKiosk();
         }
+    }
+
+    // ── Custom Forecast Location Targeting ─────────────────────────
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 3958.8; // Earth radius in miles
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function isInForecastArea(targeting) {
+        if (!targeting || targeting.mode === 'all') return true;
+        const loc = WeatherAPI.getLocation();
+        if (!loc.lat) return true; // no viewer location → show by default
+
+        if (targeting.mode === 'radius') {
+            const c = targeting.center;
+            const r = parseFloat(targeting.radiusMiles);
+            if (!c?.lat || !c?.lon || !r) return true;
+            return haversineDistance(loc.lat, loc.lon, c.lat, c.lon) <= r;
+        }
+
+        if (targeting.mode === 'zips') {
+            const zips = (targeting.zips || []).map(z => String(z).trim()).filter(Boolean);
+            if (!zips.length) return true;
+            const details = WeatherAPI.getLocationDetails();
+            if (!details?.zip) return true; // details not yet loaded → show
+            return zips.includes(String(details.zip).trim());
+        }
+
+        if (targeting.mode === 'counties') {
+            const counties = (targeting.counties || []).map(c => c.trim().toLowerCase()).filter(Boolean);
+            if (!counties.length) return true;
+            const details = WeatherAPI.getLocationDetails();
+            if (!details?.county) return true;
+            // Build a normalized "County Name ST" string for exact-match comparison
+            const viewerToken = `${details.county} ${details.stateCode || ''}`.trim().toLowerCase();
+            return counties.some(c => {
+                // Exact match on the full "County Name ST" token
+                const adminToken = c.toLowerCase().trim();
+                return viewerToken === adminToken || viewerToken.startsWith(adminToken + ' ') || adminToken.startsWith(viewerToken + ' ');
+            });
+        }
+
+        return true;
     }
 
     // ── Start ──────────────────────────────────────────────────────

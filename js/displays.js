@@ -224,6 +224,39 @@ const Displays = (() => {
         });
     }
 
+    // ── Custom Forecast ────────────────────────────────────────────
+    function renderCustomForecast(cf) {
+        const container = el('customforecast-container');
+        if (!container) return;
+        container.innerHTML = '';
+        const periods = cf?.periods || [];
+        if (!periods.length) return;
+        periods.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'day-card';
+            const hiLoHtml = (p.hi || p.lo)
+                ? `<div class="day-hi-lo">${p.hi ? `<span class="day-hi">${esc(p.hi)}</span>` : ''}${p.lo ? `<span class="day-lo">${esc(p.lo)}</span>` : ''}</div>`
+                : '';
+            card.innerHTML = `
+              <div class="day-name">${esc(p.name || '')}</div>
+              <div class="day-icon">${esc(p.icon || '🌤')}</div>
+              ${p.desc ? `<div class="day-desc markdown-body">${(typeof marked !== 'undefined' ? marked.parse(p.desc, { breaks: true }) : esc(p.desc))}</div>` : ''}
+              ${hiLoHtml}
+              ${p.precip ? `<div class="day-precip">💧 ${esc(String(p.precip))}%</div>` : ''}
+              ${p.wind ? `<div class="day-wind">💨 ${esc(p.wind)}</div>` : ''}
+            `;
+            container.appendChild(card);
+        });
+        const updatedEl = el('customforecast-updated');
+        if (updatedEl && cf?.updatedAt) {
+            updatedEl.textContent = `Updated: ${new Date(cf.updatedAt).toLocaleString()}`;
+        }
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     // ── Ticker ─────────────────────────────────────────────────────
     function updateTicker(data, slideTitle) {
         const ticker = el('ticker-text');
@@ -243,12 +276,13 @@ const Displays = (() => {
         renderAirQuality(weatherData);
         renderRadar(lat, lon);
         renderAlerts(alerts, onTTS);
+        renderCustomForecast(weatherData.customForecast);
         updateTicker(weatherData, 'CONDITIONS');
     }
 
     return {
         renderAll, renderConditions, renderObservations, renderHourly, renderExtended,
         renderPrecipChart, renderAlmanac, renderAirQuality,
-        renderRadar, renderAlerts, updateTicker
+        renderRadar, renderAlerts, renderCustomForecast, updateTicker
     };
 })();
