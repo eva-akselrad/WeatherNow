@@ -1233,6 +1233,19 @@ body {
     background: rgba(6, 182, 212, 0.1);
 }
 
+/* ── Slide footer bar (Travel, Regional) ─────────────────────── */
+/* A slim informational strip at the bottom of a slide, matching  */
+/* the existing bottom-bar / stat-row visual language.            */
+.slide-footer-bar {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    padding: 6px 16px;
+    text-align: center;
+    letter-spacing: 0.04em;
+}
+
 /* ── Current Conditions ───────────────────────────────────────── */
 .conditions-layout {
     display: grid;

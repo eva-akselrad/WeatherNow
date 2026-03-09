@@ -387,6 +387,189 @@ const WeatherAPI = (() => {
         return { conditions, hourly, daily, almanac, airQuality, pollen, precipChart, ticker };
     }
 
+    // ── Multi-city helpers ────────────────────────────────────────
+
+    /** Haversine distance in miles between two lat/lon points */
+    function haversineMiles(lat1, lon1, lat2, lon2) {
+        const R = 3958.8;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /**
+     * Fetch minimal current + 2-day forecast for a single lat/lon.
+     * Returns { temp, hi, lo, icon, desc, weatherCode, isDay }
+     */
+    async function fetchCityWeather(lat, lon) {
+        const units = useFahrenheit ? 'fahrenheit' : 'celsius';
+        const windU = useFahrenheit ? 'mph' : 'kmh';
+        const params = new URLSearchParams({
+            latitude: lat, longitude: lon,
+            current: 'temperature_2m,weather_code,is_day',
+            daily: 'temperature_2m_max,temperature_2m_min,weather_code',
+            temperature_unit: units,
+            wind_speed_unit: windU,
+            timezone: 'auto',
+            forecast_days: 2,
+        });
+        const resp = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+        if (!resp.ok) throw new Error('City weather fetch failed');
+        const data = await resp.json();
+        const c = data.current;
+        const d = data.daily;
+        const isDay = c.is_day === 1;
+        const wx = wmoToWeather(c.weather_code, isDay);
+        const wxTomorrow = wmoToWeather(d.weather_code?.[1] ?? d.weather_code?.[0], true);
+        return {
+            temp: fmtTemp(c.temperature_2m),
+            tempRaw: c.temperature_2m,
+            hi: fmtTemp(d.temperature_2m_max[0]),
+            lo: fmtTemp(d.temperature_2m_min[0]),
+            tomorrowHi: fmtTemp(d.temperature_2m_max[1] ?? d.temperature_2m_max[0]),
+            tomorrowIcon: wxTomorrow.emoji,
+            tomorrowDesc: wxTomorrow.desc,
+            icon: wx.emoji,
+            desc: wx.desc,
+            weatherCode: c.weather_code,
+            isDay,
+        };
+    }
+
+    /**
+     * Fetch weather for a list of city objects { name, state, lat, lon }.
+     * Returns array of { name, state, lat, lon, ...weatherData } in parallel.
+     */
+    async function fetchTravelCities(cities) {
+        const results = await Promise.allSettled(
+            cities.map(city =>
+                fetchCityWeather(city.lat, city.lon).then(wx => ({ ...city, ...wx, error: false }))
+            )
+        );
+        return results.map((r, i) =>
+            r.status === 'fulfilled' ? r.value : { ...cities[i], error: true, temp: '--', hi: '--', lo: '--', icon: '?', desc: '' }
+        );
+    }
+
+    /**
+     * Find the N cities closest to (lat, lon) from MAJOR_US_CITIES and fetch their weather.
+     * Excludes the user's own location if it matches a city within 10 miles.
+     */
+    async function fetchNearbyCities(lat, lon, count = 8) {
+        if (typeof MAJOR_US_CITIES === 'undefined') return [];
+        const sorted = MAJOR_US_CITIES
+            .map(c => ({ ...c, dist: haversineMiles(lat, lon, c.lat, c.lon) }))
+            .sort((a, b) => a.dist - b.dist)
+            .filter(c => c.dist > 10) // exclude user's immediate city
+            .slice(0, count);
+        return fetchTravelCities(sorted);
+    }
+
+    /**
+     * Fetch SPC categorical outlook for Days 1–3 via local proxy.
+     * Returns { day1, day2, day3 } where each is a GeoJSON FeatureCollection or null.
+     */
+    async function fetchSPCOutlook() {
+        const days = ['1', '2', '3'];
+        const results = await Promise.allSettled(
+            days.map(d =>
+                fetch(`/api/spc-outlook?day=${d}`, { cache: 'no-store' })
+                    .then(r => r.ok ? r.json() : null)
+                    .catch(() => null)
+            )
+        );
+        return {
+            day1: results[0].status === 'fulfilled' ? results[0].value : null,
+            day2: results[1].status === 'fulfilled' ? results[1].value : null,
+            day3: results[2].status === 'fulfilled' ? results[2].value : null,
+        };
+    }
+
+    /**
+     * Point-in-ring test (ray casting, GeoJSON coordinate order: [lon, lat]).
+     */
+    function pointInRing(lon, lat, ring) {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [xi, yi] = ring[i];
+            const [xj, yj] = ring[j];
+            const intersect = ((yi > lat) !== (yj > lat))
+                && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    /**
+     * Given a GeoJSON FeatureCollection (SPC categorical outlook) and user coordinates,
+     * return the highest risk category label at that point.
+     * Order: TSTM < MRGL < SLGT < ENH < MDT < HIGH
+     */
+    function spcRiskAtPoint(geoJSON, lat, lon) {
+        if (!geoJSON?.features?.length) return null;
+        const ORDER = ['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH'];
+        let maxIdx = -1;
+        for (const feature of geoJSON.features) {
+            const label = feature.properties?.LABEL;
+            if (!label) continue;
+            const geom = feature.geometry;
+            if (!geom) continue;
+            let hit = false;
+            if (geom.type === 'Polygon') {
+                hit = pointInRing(lon, lat, geom.coordinates[0]);
+            } else if (geom.type === 'MultiPolygon') {
+                hit = geom.coordinates.some(poly => pointInRing(lon, lat, poly[0]));
+            }
+            if (hit) {
+                const idx = ORDER.indexOf(label);
+                if (idx > maxIdx) maxIdx = idx;
+            }
+        }
+        return maxIdx >= 0 ? ORDER[maxIdx] : null;
+    }
+
+    /**
+     * Process SPC GeoJSON outlook into a structured object for rendering.
+     * Returns { days: [{ label, risk, riskLabel, color }, ...], valid: boolean }
+     */
+    function processSPCOutlook(spcData, lat, lon) {
+        const RISK_META = {
+            null:   { label: 'No Risk',   color: '#3a3a3a', pct: 0 },
+            TSTM:   { label: 'T\'Storm',  color: '#2e7d32', pct: 14 },
+            MRGL:   { label: 'Marginal',  color: '#4caf50', pct: 28 },
+            SLGT:   { label: 'Slight',    color: '#cddc39', pct: 46 },
+            ENH:    { label: 'Enhanced',  color: '#ff9800', pct: 62 },
+            MDT:    { label: 'Moderate',  color: '#f44336', pct: 78 },
+            HIGH:   { label: 'High',      color: '#e91e63', pct: 95 },
+        };
+
+        const now = new Date();
+        const dayNames = [];
+        for (let i = 0; i < 3; i++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() + i);
+            dayNames.push(d.toLocaleDateString('en-US', { weekday: 'long' }));
+        }
+
+        const datasets = [spcData.day1, spcData.day2, spcData.day3];
+        const days = datasets.map((data, i) => {
+            const risk = spcRiskAtPoint(data, lat, lon);
+            const meta = RISK_META[risk] ?? RISK_META[null];
+            return {
+                dayName: dayNames[i],
+                risk,
+                riskLabel: meta.label,
+                color: meta.color,
+                pct: meta.pct,
+                available: data !== null,
+            };
+        });
+
+        return { days, valid: datasets.some(d => d !== null) };
+    }
+
     // ── Public ────────────────────────────────────────────────────
     async function loadLocation(query) {
         const geo = await geocode(query);
@@ -427,14 +610,26 @@ const WeatherAPI = (() => {
     }
     async function fetchAll() {
         if (!currentLat) throw new Error('No location set');
-        const [raw, aq, alerts, cf] = await Promise.all([
+
+        // Nearby cities power both the Travel Forecast and Regional slides,
+        // adapting automatically to the user's current position.
+        const [raw, aq, alerts, cf, nearbyCities, spcRaw] = await Promise.all([
             fetchWeather(currentLat, currentLon),
             fetchAirQuality(currentLat, currentLon),
             fetchAlerts(currentLat, currentLon),
-            fetch('/api/custom-forecast', { cache: 'no-store' }).then(r => r.ok ? r.json() : { periods: [], updatedAt: null }).catch(() => ({ periods: [], updatedAt: null }))
+            fetch('/api/custom-forecast', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : { periods: [], updatedAt: null })
+                .catch(() => ({ periods: [], updatedAt: null })),
+            fetchNearbyCities(currentLat, currentLon, 8).catch(() => []),
+            fetchSPCOutlook().catch(() => ({ day1: null, day2: null, day3: null })),
         ]);
+
         weatherData = processData(raw, aq);
         weatherData.customForecast = cf;
+        // Both travel and regional slides share the same nearby-city dataset
+        weatherData.nearbyCities = nearbyCities;
+        weatherData.travelCities = nearbyCities;
+        weatherData.spcOutlook = processSPCOutlook(spcRaw, currentLat, currentLon);
         alertsData = alerts;
         return { weather: weatherData, alerts: alertsData };
     }
@@ -444,5 +639,9 @@ const WeatherAPI = (() => {
     function getData() { return weatherData; }
     function getAlerts() { return alertsData; }
 
-    return { loadLocation, loadIPLocation, loadGPS, fetchAll, setUnits, getLocation, getLocationDetails, getData, getAlerts };
+    return {
+        loadLocation, loadIPLocation, loadGPS, fetchAll, setUnits,
+        getLocation, getLocationDetails, getData, getAlerts,
+        fetchTravelCities, fetchNearbyCities,
+    };
 })();

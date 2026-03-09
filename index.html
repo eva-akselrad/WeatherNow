@@ -71,7 +71,10 @@
                 <label><input type="checkbox" data-display="precipchart" checked /> Precipitation</label>
                 <label><input type="checkbox" data-display="almanac" checked /> Almanac</label>
                 <label><input type="checkbox" data-display="airquality" checked /> Air Quality</label>
-
+                <label><input type="checkbox" data-display="travel" checked /> Travel Forecast</label>
+                <label><input type="checkbox" data-display="regionalobs" checked /> Regional Observations</label>
+                <label><input type="checkbox" data-display="regionalfcst" checked /> Regional Forecast</label>
+                <label><input type="checkbox" data-display="spc" checked /> SPC Outlook</label>
                 <label><input type="checkbox" data-display="radar" checked /> Radar</label>
                 <label><input type="checkbox" data-display="alerts" checked /> Severe Alerts</label>
                 <label><input type="checkbox" data-display="customforecast" checked /> Custom Forecast</label>
@@ -460,6 +463,45 @@
                 <div id="customforecast-updated" style="text-align:center;font-size:0.65rem;color:var(--text-secondary);margin-top:8px;padding-bottom:4px"></div>
             </div>
 
+            <!-- Travel Forecast (cities near user's location) -->
+            <div class="slide hidden" id="slide-travel" data-display="travel">
+                <div class="slide-header">
+                    <span class="slide-title">Travel Forecast</span>
+                    <span class="slide-badge noaa">NEARBY</span>
+                </div>
+                <div id="travel-container" class="extended-container"></div>
+                <div id="travel-footer" class="slide-footer-bar"></div>
+            </div>
+
+            <!-- Regional Observations -->
+            <div class="slide hidden" id="slide-regional-obs" data-display="regionalobs">
+                <div class="slide-header">
+                    <span class="slide-title">Regional Observations</span>
+                    <span class="slide-badge noaa">LIVE</span>
+                </div>
+                <div id="regional-obs-grid" class="obs-grid"></div>
+                <div id="regional-obs-footer" class="slide-footer-bar"></div>
+            </div>
+
+            <!-- Regional Forecast -->
+            <div class="slide hidden" id="slide-regional-fcst" data-display="regionalfcst">
+                <div class="slide-header">
+                    <span id="regional-fcst-title" class="slide-title">Regional Forecast</span>
+                    <span class="slide-badge noaa">NWS</span>
+                </div>
+                <div id="regional-fcst-grid" class="obs-grid"></div>
+                <div id="regional-fcst-footer" class="slide-footer-bar"></div>
+            </div>
+
+            <!-- SPC Outlook -->
+            <div class="slide hidden" id="slide-spc" data-display="spc">
+                <div class="slide-header">
+                    <span class="slide-title">Storm Prediction Center Outlook</span>
+                    <span class="slide-badge" style="background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)">SPC</span>
+                </div>
+                <div id="spc-container" class="extended-container"></div>
+            </div>
+
         </div><!-- /slide-viewport -->
 
         <!-- PROGRESS BAR -->
@@ -507,6 +549,7 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="js/cities.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/music.js"></script>
     <script src="js/weather.js"></script>

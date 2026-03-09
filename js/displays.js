@@ -225,8 +225,7 @@ const Displays = (() => {
     }
 
     // ── Custom Forecast ────────────────────────────────────────────
-    function renderCustomForecast(cf) {
-        const container = el('customforecast-container');
+    function renderCustomForecast(cf) {        const container = el('customforecast-container');
         if (!container) return;
         container.innerHTML = '';
         const periods = cf?.periods || [];
@@ -257,6 +256,149 @@ const Displays = (() => {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    // ── Travel Forecast ────────────────────────────────────────────
+    // Shows nearby cities (relative to user's location) with today's lo/hi.
+    // Reuses .extended-container / .day-card styles.
+    function renderTravel(data) {
+        const container = el('travel-container');
+        if (!container) return;
+        container.innerHTML = '';
+        const cities = data.travelCities || [];
+
+        if (!cities.length) {
+            container.innerHTML = '<div class="no-alerts">📡 Fetching nearby city data…</div>';
+            return;
+        }
+
+        cities.forEach(city => {
+            const card = document.createElement('div');
+            card.className = 'day-card';
+            card.innerHTML = `
+              <div class="day-name">${esc(city.name)}, ${esc(city.state)}</div>
+              <div class="day-icon">${city.icon || '?'}</div>
+              <div class="day-desc">${esc(city.desc || '')}</div>
+              <div class="day-hi-lo">
+                <span class="day-hi">${esc(city.hi || '--')}</span>
+                <span class="day-lo">${esc(city.lo || '--')}</span>
+              </div>
+            `;
+            container.appendChild(card);
+        });
+
+        // Footer: show local humidity & dewpoint from current conditions
+        const footer = el('travel-footer');
+        if (footer && data.conditions) {
+            const c = data.conditions;
+            footer.textContent = `Humidity: ${c.humidity}   Dewpoint: ${c.dewpoint}`;
+        }
+    }
+
+    // ── Regional Observations ──────────────────────────────────────
+    // Shows current conditions for nearby cities in the standard obs-grid.
+    // Reuses .obs-grid / .obs-card styles.
+    function renderRegionalObs(data) {
+        const container = el('regional-obs-grid');
+        if (!container) return;
+        container.innerHTML = '';
+        const cities = data.nearbyCities || [];
+
+        if (!cities.length) {
+            container.innerHTML = '<div class="no-alerts">📡 Fetching nearby city data…</div>';
+            return;
+        }
+
+        cities.forEach(city => {
+            const card = document.createElement('div');
+            card.className = 'obs-card';
+            card.innerHTML = `
+              <span class="obs-icon">${city.icon || '?'}</span>
+              <span class="obs-label">${esc(city.name)}, ${esc(city.state)}</span>
+              <span class="obs-value">${esc(city.temp || '--')}</span>
+            `;
+            container.appendChild(card);
+        });
+
+        // Footer: local temp + wind chill or heat index
+        const footer = el('regional-obs-footer');
+        if (footer && data.conditions) {
+            const c = data.conditions;
+            const extra = c.windChill !== '--' ? `Wind Chill: ${c.windChill}` : c.heatIndex !== '--' ? `Heat Index: ${c.heatIndex}` : '';
+            footer.textContent = `Temp: ${c.temp}   ${extra}`.trim();
+        }
+    }
+
+    // ── Regional Forecast ──────────────────────────────────────────
+    // Shows tomorrow's high for nearby cities. Reuses .obs-grid / .obs-card.
+    function renderRegionalFcst(data) {
+        const container = el('regional-fcst-grid');
+        if (!container) return;
+        container.innerHTML = '';
+        const cities = data.nearbyCities || [];
+
+        if (!cities.length) {
+            container.innerHTML = '<div class="no-alerts">📡 Fetching nearby city data…</div>';
+            return;
+        }
+
+        // Title update: "Forecast for <tomorrow name>"
+        const titleEl = el('regional-fcst-title');
+        if (titleEl) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            titleEl.textContent = `Forecast for ${tomorrow.toLocaleDateString('en-US', { weekday: 'long' })}`;
+        }
+
+        cities.forEach(city => {
+            const card = document.createElement('div');
+            card.className = 'obs-card';
+            card.innerHTML = `
+              <span class="obs-icon">${city.tomorrowIcon || city.icon || '?'}</span>
+              <span class="obs-label">${esc(city.name)}, ${esc(city.state)}</span>
+              <span class="obs-value">${esc(city.tomorrowHi || city.hi || '--')}</span>
+            `;
+            container.appendChild(card);
+        });
+
+        // Footer: local temp + wind chill or heat index (same as obs)
+        const footer = el('regional-fcst-footer');
+        if (footer && data.conditions) {
+            const c = data.conditions;
+            const extra = c.windChill !== '--' ? `Wind Chill: ${c.windChill}` : c.heatIndex !== '--' ? `Heat Index: ${c.heatIndex}` : '';
+            footer.textContent = `Temp: ${c.temp}   ${extra}`.trim();
+        }
+    }
+
+    // ── SPC Outlook ────────────────────────────────────────────────
+    // Storm Prediction Center categorical outlook for Days 1-3.
+    // Uses .day-card with a coloured risk badge + inline progress bar.
+    function renderSPCOutlook(data) {
+        const container = el('spc-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const spc = data.spcOutlook;
+        if (!spc || !spc.valid) {
+            container.innerHTML = '<div class="no-alerts">⛅ SPC outlook data unavailable.</div>';
+            return;
+        }
+
+        spc.days.forEach(day => {
+            const card = document.createElement('div');
+            card.className = 'day-card';
+            // Re-use existing day-card structure; colour the risk level via inline badge style
+            card.innerHTML = `
+              <div class="day-name">${esc(day.dayName)}</div>
+              <div class="day-icon" style="font-size:1rem">⛈</div>
+              <div class="day-desc" style="color:${day.color};font-weight:700">${esc(day.riskLabel)}</div>
+              <div style="width:100%;background:var(--bg-card2);border-radius:4px;height:6px;margin-top:6px;overflow:hidden">
+                <div style="height:100%;width:${day.pct}%;background:${day.color};border-radius:4px;transition:width 0.6s"></div>
+              </div>
+              ${!day.available ? '<div class="day-precip" style="font-size:0.65rem">Data unavailable</div>' : ''}
+            `;
+            container.appendChild(card);
+        });
+    }
+
     // ── Ticker ─────────────────────────────────────────────────────
     function updateTicker(data, slideTitle) {
         const ticker = el('ticker-text');
@@ -277,12 +419,17 @@ const Displays = (() => {
         renderRadar(lat, lon);
         renderAlerts(alerts, onTTS);
         renderCustomForecast(weatherData.customForecast);
+        renderTravel(weatherData);
+        renderRegionalObs(weatherData);
+        renderRegionalFcst(weatherData);
+        renderSPCOutlook(weatherData);
         updateTicker(weatherData, 'CONDITIONS');
     }
 
     return {
         renderAll, renderConditions, renderObservations, renderHourly, renderExtended,
         renderPrecipChart, renderAlmanac, renderAirQuality,
-        renderRadar, renderAlerts, renderCustomForecast, updateTicker
+        renderRadar, renderAlerts, renderCustomForecast, updateTicker,
+        renderTravel, renderRegionalObs, renderRegionalFcst, renderSPCOutlook,
     };
 })();

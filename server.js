@@ -285,6 +285,36 @@ app.delete('/api/custom-forecast', adminLimiter, (req, res) => {
     res.json({ ok: true });
 });
 
+// ── GET /api/spc-outlook?day=1|2|3 ───────────────────────────
+// Proxies SPC categorical outlook GeoJSON to avoid browser CORS restrictions.
+app.get('/api/spc-outlook', async (req, res) => {
+    const day = req.query.day || '1';
+    const validFiles = {
+        '1': 'day1otlk_cat.nolyr.geojson',
+        '2': 'day2otlk_cat.nolyr.geojson',
+        '3': 'day3otlk_cat.nolyr.geojson',
+    };
+    const file = validFiles[day];
+    if (!file) return res.status(400).json({ error: 'Invalid day parameter. Use 1, 2, or 3.' });
+
+    const url = `https://www.spc.noaa.gov/products/outlook/${file}`;
+    try {
+        const upstream = await fetch(url, {
+            headers: { 'User-Agent': 'SHELLY-WeatherClient/1.0 (weather display)' },
+            signal: AbortSignal.timeout(10000),
+        });
+        if (!upstream.ok) {
+            return res.status(502).json({ error: `SPC returned ${upstream.status}` });
+        }
+        const data = await upstream.json();
+        res.setHeader('Cache-Control', 'public, max-age=900'); // 15-minute cache
+        res.json(data);
+    } catch (err) {
+        console.error('[SPC] Proxy error:', err.message);
+        res.status(502).json({ error: 'Failed to fetch SPC outlook data' });
+    }
+});
+
 // ── Start ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
