@@ -1578,9 +1578,9 @@
                 if (!t) return;
                 setTargetingMode(t.mode || 'all');
                 if (t.mode === 'radius') {
-                    if (t.center?.lat) document.getElementById('fc-radius-lat').value = t.center.lat;
-                    if (t.center?.lon) document.getElementById('fc-radius-lon').value = t.center.lon;
-                    if (t.radiusMiles) document.getElementById('fc-radius-mi').value = t.radiusMiles;
+                    if (t.center?.lat != null) document.getElementById('fc-radius-lat').value = t.center.lat;
+                    if (t.center?.lon != null) document.getElementById('fc-radius-lon').value = t.center.lon;
+                    if (t.radiusMiles != null) document.getElementById('fc-radius-mi').value = t.radiusMiles;
                     syncRadiusCircle();
                 }
                 if (t.mode === 'zips' && t.zips?.length) {
