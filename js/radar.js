@@ -221,7 +221,8 @@ const RadarMap = (() => {
   }
 
   function refreshAll() {
-    stopAnimation();
+    clearInterval(animTimer);
+    animTimer = null;
     buildFrames();
   }
 
