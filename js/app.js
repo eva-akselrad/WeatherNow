@@ -103,14 +103,12 @@
     // content is shown without user interaction.  The scroll resets to the
     // top/left when the slide is swapped out.
     const SCROLL_MAP = {
-        'slide-hourly':        { id: 'hourly-container',   dir: 'x' },
-        'slide-extended':      { id: 'extended-container', dir: 'y' },
-        'slide-observations':  { id: 'obs-grid',           dir: 'y' },
-        'slide-alerts':        { id: 'alerts-container',   dir: 'y' },
-        'slide-travel':        { id: 'travel-container',   dir: 'y' },
-        'slide-regional-obs':  { id: 'regional-obs-grid',  dir: 'y' },
-        'slide-regional-fcst': { id: 'regional-fcst-grid', dir: 'y' },
-        'slide-spc':           { id: 'spc-container',      dir: 'y' },
+        'slide-hourly':       { id: 'hourly-container',  dir: 'x' },
+        'slide-extended':     { id: 'extended-container', dir: 'y' },
+        'slide-observations': { id: 'obs-grid',           dir: 'y' },
+        'slide-alerts':       { id: 'alerts-container',   dir: 'y' },
+        // travel, regional-obs, regional-fcst, spc all use fixed or map layouts
+        // that manage their own sizing — no autoscroll needed
     };
 
     /** Stop any running autoscroll animation and reset the previous container. */
@@ -266,6 +264,14 @@
         // Radar: notify Leaflet the container is now visible
         if (target.display === 'radar' && typeof RadarMap !== 'undefined') {
             setTimeout(() => RadarMap.onSlideVisible(), 100);
+        }
+
+        // Regional map slides: initialise / refresh Leaflet when container becomes visible
+        if (target.display === 'regionalobs' && typeof Displays !== 'undefined') {
+            setTimeout(() => Displays.onRegionalObsVisible(), 80);
+        }
+        if (target.display === 'regionalfcst' && typeof Displays !== 'undefined') {
+            setTimeout(() => Displays.onRegionalFcstVisible(), 80);
         }
     }
 

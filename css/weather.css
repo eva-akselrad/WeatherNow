@@ -2402,6 +2402,301 @@ body.kiosk-mode #music-controls {
 
 
 /* ════════════════════════════════════════════════════════════════
+   WEATHERSTAR 4000+ STYLE SLIDES
+   Full-screen, no-padding layouts for Travel, Regional, SPC
+   ════════════════════════════════════════════════════════════════ */
+
+/* Base: remove padding, become a flex column */
+.slide.slide-no-pad {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Travel Forecast ──────────────────────────────────────────── */
+.ws4k-travel-layout {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+}
+
+.ws4k-travel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 28px;
+    border-bottom: 2px solid var(--border-strong);
+    flex-shrink: 0;
+    background: var(--bg-card);
+}
+
+.ws4k-travel-day {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.ws4k-col-headers {
+    display: flex;
+    gap: 0;
+    flex-shrink: 0;
+}
+
+.ws4k-col-headers span {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-accent);
+    width: 90px;
+    text-align: right;
+    letter-spacing: 0.1em;
+}
+
+.ws4k-travel-rows {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    padding: 0 28px;
+}
+
+.ws4k-city-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.ws4k-city-row:last-child {
+    border-bottom: none;
+}
+
+.ws4k-city-name {
+    flex: 1;
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    font-weight: 700;
+    color: var(--text-accent);
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ws4k-city-icon {
+    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+    width: 56px;
+    text-align: center;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.ws4k-city-lo,
+.ws4k-city-hi {
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    font-weight: 700;
+    color: var(--text-accent);
+    width: 90px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* ── WS4K Footer bar (shared by travel + map slides) ─────────── */
+.ws4k-footer-bar {
+    font-family: var(--font-mono);
+    font-size: clamp(0.8rem, 1.8vw, 1.05rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    border-top: 2px solid var(--accent);
+    padding: 11px 28px;
+    text-align: center;
+    letter-spacing: 0.07em;
+    flex-shrink: 0;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Regional Observation / Forecast maps ─────────────────────── */
+.ws4k-map-container {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
+/* Disable Leaflet attribution clutter */
+.ws4k-map-container .leaflet-control-attribution {
+    font-size: 0.55rem;
+    opacity: 0.4;
+    background: rgba(0, 0, 0, 0.5) !important;
+    color: #888 !important;
+}
+
+/* City markers */
+.ws4k-marker {
+    text-align: center;
+    pointer-events: none;
+    line-height: 1.15;
+}
+
+.ws4k-marker-name {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+    white-space: nowrap;
+    margin-bottom: 2px;
+    letter-spacing: 0.02em;
+}
+
+.ws4k-marker-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    justify-content: center;
+}
+
+.ws4k-marker-temp {
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    font-weight: 900;
+    color: var(--text-accent);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.8);
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+.ws4k-marker-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+    display: inline-block;
+    filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.8));
+}
+
+/* ── SPC Outlook Chart ────────────────────────────────────────── */
+.ws4k-spc-layout {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 28px 16px;
+    gap: 14px;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+}
+
+/* Scale legend row at top */
+.ws4k-spc-scale {
+    display: flex;
+    margin-left: 130px;
+    height: 30px;
+    border-radius: 6px 6px 0 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+.ws4k-spc-band {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5rem;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(0, 0, 0, 0.85);
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.ws4k-spc-band:last-child {
+    border-right: none;
+}
+
+/* Day rows */
+.ws4k-spc-days {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+}
+
+.ws4k-spc-day-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.ws4k-spc-day-name {
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 2.8vw, 1.7rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    width: 114px;
+    flex-shrink: 0;
+    letter-spacing: 0.04em;
+}
+
+.ws4k-spc-bar-track {
+    flex: 1;
+    height: 54px;
+    background: var(--bg-card2);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border);
+}
+
+/* Subtle scale gradient visible in empty part of track — populated via JS */
+.ws4k-spc-bar-track::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--spc-track-grad, transparent);
+    pointer-events: none;
+}
+
+.ws4k-spc-bar {
+    height: 100%;
+    min-width: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 14px;
+    position: relative;
+    z-index: 1;
+    border-radius: 6px;
+    transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ws4k-spc-bar-text {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: rgba(0, 0, 0, 0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+/* No-risk placeholder */
+.ws4k-spc-norisk {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding-left: 14px;
+    letter-spacing: 0.06em;
+}
+
+/* ════════════════════════════════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {

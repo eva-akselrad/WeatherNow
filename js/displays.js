@@ -6,6 +6,13 @@ const Displays = (() => {
     function el(id) { return document.getElementById(id); }
     function txt(id, v) { const e = el(id); if (e) e.textContent = v ?? '--'; }
 
+    // ── Regional map state ────────────────────────────────────────
+    let obsMap = null;
+    let fcstMap = null;
+    // Store pending data so maps can be refreshed when first made visible
+    let pendingObsData = null;
+    let pendingFcstData = null;
+
     // ── Current Conditions ─────────────────────────────────────────
     function renderConditions(data) {
         const c = data.conditions;
@@ -256,146 +263,255 @@ const Displays = (() => {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // ── Travel Forecast ────────────────────────────────────────────
-    // Shows nearby cities (relative to user's location) with today's lo/hi.
-    // Reuses .extended-container / .day-card styles.
-    function renderTravel(data) {
-        const container = el('travel-container');
-        if (!container) return;
-        container.innerHTML = '';
-        const cities = data.travelCities || [];
+    /** Convert a 6-digit hex colour (#rrggbb) to "r,g,b" string for rgba(). */
+    function hexToRgb(hex) {
+        const n = parseInt(hex.replace('#', ''), 16);
+        return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+    }
 
-        if (!cities.length) {
-            container.innerHTML = '<div class="no-alerts">📡 Fetching nearby city data…</div>';
-            return;
+    // ── Travel Forecast ────────────────────────────────────────────
+    // Full-screen WeatherStar-style vertical list: city / icon / lo / hi
+    function renderTravel(data) {
+        const rows = el('travel-rows');
+        if (!rows) return;
+
+        const cities = data.travelCities || [];
+        const dayLabel = el('travel-day-label');
+        if (dayLabel) {
+            const today = new Date();
+            dayLabel.textContent = `Travel Forecast — ${today.toLocaleDateString('en-US', { weekday: 'long' })}`;
         }
 
-        cities.forEach(city => {
-            const card = document.createElement('div');
-            card.className = 'day-card';
-            card.innerHTML = `
-              <div class="day-name">${esc(city.name)}, ${esc(city.state)}</div>
-              <div class="day-icon">${city.icon || '?'}</div>
-              <div class="day-desc">${esc(city.desc || '')}</div>
-              <div class="day-hi-lo">
-                <span class="day-hi">${esc(city.hi || '--')}</span>
-                <span class="day-lo">${esc(city.lo || '--')}</span>
+        if (!cities.length) {
+            rows.innerHTML = '<div class="no-alerts" style="margin:auto">📡 Fetching city data…</div>';
+        } else {
+            rows.innerHTML = cities.map(city => `
+              <div class="ws4k-city-row">
+                <span class="ws4k-city-name">${esc(city.name)}</span>
+                <span class="ws4k-city-icon">${city.icon || '?'}</span>
+                <span class="ws4k-city-lo">${esc(stripDeg(city.lo))}</span>
+                <span class="ws4k-city-hi">${esc(stripDeg(city.hi))}</span>
               </div>
-            `;
-            container.appendChild(card);
-        });
+            `).join('');
+        }
 
-        // Footer: show local humidity & dewpoint from current conditions
         const footer = el('travel-footer');
         if (footer && data.conditions) {
             const c = data.conditions;
-            footer.textContent = `Humidity: ${c.humidity}   Dewpoint: ${c.dewpoint}`;
+            footer.textContent = `Humidity: ${c.humidity}   \u2022   Dewpoint: ${c.dewpoint}`;
         }
     }
 
-    // ── Regional Observations ──────────────────────────────────────
-    // Shows current conditions for nearby cities in the standard obs-grid.
-    // Reuses .obs-grid / .obs-card styles.
-    function renderRegionalObs(data) {
-        const container = el('regional-obs-grid');
-        if (!container) return;
-        container.innerHTML = '';
-        const cities = data.nearbyCities || [];
+    /** Strip trailing "°F" / "°C" suffix so numbers sit cleaner in the table. */
+    function stripDeg(s) {
+        if (!s) return '--';
+        return String(s).replace(/°[FC]$/, '').replace(/°$/, '') || '--';
+    }
 
-        if (!cities.length) {
-            container.innerHTML = '<div class="no-alerts">📡 Fetching nearby city data…</div>';
-            return;
-        }
+    // ── Shared Leaflet map factory ──────────────────────────────────
+    /**
+     * Create a Leaflet map inside `containerId` and return it.
+     * Safe to call only once per container — callers guard with the
+     * module-level `obsMap` / `fcstMap` null-check.
+     * Returns null if the container element is missing.
+     */
+    function createRegionalMap(containerId) {
+        const container = el(containerId);
+        if (!container) return null;
 
-        cities.forEach(city => {
-            const card = document.createElement('div');
-            card.className = 'obs-card';
-            card.innerHTML = `
-              <span class="obs-icon">${city.icon || '?'}</span>
-              <span class="obs-label">${esc(city.name)}, ${esc(city.state)}</span>
-              <span class="obs-value">${esc(city.temp || '--')}</span>
-            `;
-            container.appendChild(card);
+        const map = L.map(containerId, {
+            zoomControl: false,
+            attributionControl: true,
+            dragging: false,
+            touchZoom: false,
+            doubleClickZoom: false,
+            scrollWheelZoom: false,
+            boxZoom: false,
+            keyboard: false,
         });
 
-        // Footer: local temp + wind chill or heat index
+        // CartoDB Dark Matter — dark grey map that matches the app theme
+        L.tileLayer(
+            'https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png',
+            { maxZoom: 10, subdomains: 'abcd' }
+        ).addTo(map);
+
+        return map;
+    }
+
+    /** Build a custom divIcon marker showing city name, temperature and icon. */
+    function makeCityMarker(city, tempText, iconEmoji) {
+        const html = `
+          <div class="ws4k-marker">
+            <span class="ws4k-marker-name">${esc(city.name)}</span>
+            <span class="ws4k-marker-row">
+              <span class="ws4k-marker-temp">${esc(tempText)}</span>
+              <span class="ws4k-marker-icon">${iconEmoji || ''}</span>
+            </span>
+          </div>`;
+        return L.marker([city.lat, city.lon], {
+            icon: L.divIcon({ html, className: '', iconSize: [100, 55], iconAnchor: [50, 55] }),
+            interactive: false,
+        });
+    }
+
+    /** Place markers on a map, fit bounds, and refresh size. */
+    function populateMap(map, cities, getValue, getIcon) {
+        // Clear old markers
+        map.eachLayer(l => { if (l instanceof L.Marker) map.removeLayer(l); });
+
+        const coords = [];
+        cities.forEach(city => {
+            if (city.error) return;
+            const marker = makeCityMarker(city, getValue(city), getIcon(city));
+            marker.addTo(map);
+            coords.push([city.lat, city.lon]);
+        });
+
+        if (coords.length) {
+            const bounds = L.latLngBounds(coords).pad(0.25);
+            map.fitBounds(bounds, { animate: false });
+        }
+
+        map.invalidateSize();
+    }
+
+    // ── Regional Observations ──────────────────────────────────────
+    function renderRegionalObs(data) {
+        pendingObsData = data;
+
+        const container = el('regional-obs-map');
+        if (!container || container.offsetWidth === 0) return; // slide not visible yet
+
+        if (!obsMap) obsMap = createRegionalMap('regional-obs-map');
+        if (!obsMap) return;
+
+        const cities = data.nearbyCities || [];
+        if (!cities.length) return;
+
+        populateMap(obsMap, cities,
+            c => stripDeg(c.temp),
+            c => c.icon || '?'
+        );
+
         const footer = el('regional-obs-footer');
         if (footer && data.conditions) {
             const c = data.conditions;
-            const extra = c.windChill !== '--' ? `Wind Chill: ${c.windChill}` : c.heatIndex !== '--' ? `Heat Index: ${c.heatIndex}` : '';
-            footer.textContent = `Temp: ${c.temp}   ${extra}`.trim();
+            const extra = c.windChill !== '--'
+                ? `Wind Chill: ${c.windChill}`
+                : c.heatIndex !== '--' ? `Heat Index: ${c.heatIndex}` : '';
+            footer.textContent = `Temp: ${c.temp}   \u2022   ${extra}`.replace(/\s*\u2022\s*$/, '').trim();
         }
     }
 
     // ── Regional Forecast ──────────────────────────────────────────
-    // Shows tomorrow's high for nearby cities. Reuses .obs-grid / .obs-card.
     function renderRegionalFcst(data) {
-        const container = el('regional-fcst-grid');
-        if (!container) return;
-        container.innerHTML = '';
+        pendingFcstData = data;
+
+        const container = el('regional-fcst-map');
+        if (!container || container.offsetWidth === 0) return;
+
+        if (!fcstMap) fcstMap = createRegionalMap('regional-fcst-map');
+        if (!fcstMap) return;
+
         const cities = data.nearbyCities || [];
+        if (!cities.length) return;
 
-        if (!cities.length) {
-            container.innerHTML = '<div class="no-alerts">📡 Fetching nearby city data…</div>';
-            return;
-        }
+        populateMap(fcstMap, cities,
+            c => stripDeg(c.tomorrowHi || c.hi),
+            c => c.tomorrowIcon || c.icon || '?'
+        );
 
-        // Title update: "Forecast for <tomorrow name>"
-        const titleEl = el('regional-fcst-title');
-        if (titleEl) {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            titleEl.textContent = `Forecast for ${tomorrow.toLocaleDateString('en-US', { weekday: 'long' })}`;
-        }
-
-        cities.forEach(city => {
-            const card = document.createElement('div');
-            card.className = 'obs-card';
-            card.innerHTML = `
-              <span class="obs-icon">${city.tomorrowIcon || city.icon || '?'}</span>
-              <span class="obs-label">${esc(city.name)}, ${esc(city.state)}</span>
-              <span class="obs-value">${esc(city.tomorrowHi || city.hi || '--')}</span>
-            `;
-            container.appendChild(card);
-        });
-
-        // Footer: local temp + wind chill or heat index (same as obs)
         const footer = el('regional-fcst-footer');
         if (footer && data.conditions) {
             const c = data.conditions;
-            const extra = c.windChill !== '--' ? `Wind Chill: ${c.windChill}` : c.heatIndex !== '--' ? `Heat Index: ${c.heatIndex}` : '';
-            footer.textContent = `Temp: ${c.temp}   ${extra}`.trim();
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const dayName = tomorrow.toLocaleDateString('en-US', { weekday: 'long' });
+            const extra = c.windChill !== '--'
+                ? `Wind Chill: ${c.windChill}`
+                : c.heatIndex !== '--' ? `Heat Index: ${c.heatIndex}` : '';
+            footer.textContent = `Forecast for ${dayName}   \u2022   Temp: ${c.temp}   \u2022   ${extra}`.replace(/\s*\u2022\s*$/, '').trim();
         }
     }
 
-    // ── SPC Outlook ────────────────────────────────────────────────
-    // Storm Prediction Center categorical outlook for Days 1-3.
-    // Uses .day-card with a coloured risk badge + inline progress bar.
+    // ── SPC Outlook ─────────────────────────────────────────────────
+    // Horizontal bar chart — one row per day, bar width ∝ risk level.
     function renderSPCOutlook(data) {
-        const container = el('spc-container');
+        const container = el('spc-chart');
         if (!container) return;
-        container.innerHTML = '';
 
         const spc = data.spcOutlook;
         if (!spc || !spc.valid) {
-            container.innerHTML = '<div class="no-alerts">⛅ SPC outlook data unavailable.</div>';
+            container.innerHTML = `
+              <div style="flex:1;display:flex;align-items:center;justify-content:center">
+                <div class="no-alerts">⛅ SPC outlook data unavailable.</div>
+              </div>`;
             return;
         }
 
-        spc.days.forEach(day => {
-            const card = document.createElement('div');
-            card.className = 'day-card';
-            // Re-use existing day-card structure; colour the risk level via inline badge style
-            card.innerHTML = `
-              <div class="day-name">${esc(day.dayName)}</div>
-              <div class="day-icon" style="font-size:1rem">⛈</div>
-              <div class="day-desc" style="color:${day.color};font-weight:700">${esc(day.riskLabel)}</div>
-              <div style="width:100%;background:var(--bg-card2);border-radius:4px;height:6px;margin-top:6px;overflow:hidden">
-                <div style="height:100%;width:${day.pct}%;background:${day.color};border-radius:4px;transition:width 0.6s"></div>
-              </div>
-              ${!day.available ? '<div class="day-precip" style="font-size:0.65rem">Data unavailable</div>' : ''}
-            `;
-            container.appendChild(card);
+        // Risk-level metadata — order matters (ascending severity).
+        // The pct values drive BOTH the bar widths AND the CSS gradient stops
+        // on .ws4k-spc-bar-track::after (set via custom properties below).
+        const RISK = [
+            { key: null,   pct: 0,   label: 'No Thunderstorm Risk', color: 'transparent' },
+            { key: 'TSTM', pct: 14,  label: 'T-Storm',              color: '#607d8b' },
+            { key: 'MRGL', pct: 28,  label: 'Marginal',             color: '#4caf50' },
+            { key: 'SLGT', pct: 46,  label: 'Slight',               color: '#cddc39' },
+            { key: 'ENH',  pct: 62,  label: 'Enhanced',             color: '#ff9800' },
+            { key: 'MDT',  pct: 78,  label: 'Moderate',             color: '#f44336' },
+            { key: 'HIGH', pct: 100, label: 'High',                 color: '#e91e63' },
+        ];
+
+        // Sync the ::after gradient stops with the RISK pct values so there
+        // is a single source of truth — no magic numbers duplicated in CSS.
+        const gradStops = RISK.slice(1).map((r, i) => {
+            const prev = RISK[i]; // previous entry (starts at index 0 = null)
+            const col = r.color;
+            return `rgba(${hexToRgb(col)},0.12) ${prev.pct}%, rgba(${hexToRgb(col)},0.12) ${r.pct}%`;
+        }).join(', ');
+        container.style.setProperty('--spc-track-grad', `linear-gradient(to right, ${gradStops})`);
+
+        // Build scale legend bands (skip "no risk")
+        const scaleBands = RISK.slice(1).map(r =>
+            `<div class="ws4k-spc-band" style="background:${r.color}">${r.label.split(' ')[0]}</div>`
+        ).join('');
+
+        // Build day rows — store target width in data-w so the animation
+        // can safely zero-out inline style first and then restore.
+        const dayRows = spc.days.map(day => {
+            const meta = RISK.find(r => r.key === day.risk) || RISK[0];
+            const targetPct = meta.pct;
+            const barContent = targetPct > 0
+                ? `<span class="ws4k-spc-bar-text">${esc(day.riskLabel)}</span>`
+                : '';
+            const noRiskLabel = targetPct === 0
+                ? `<div style="position:absolute;inset:0;display:flex;align-items:center;padding:0 14px"><span class="ws4k-spc-norisk">No Risk</span></div>`
+                : '';
+
+            return `
+              <div class="ws4k-spc-day-row">
+                <span class="ws4k-spc-day-name">${esc(day.dayName)}</span>
+                <div class="ws4k-spc-bar-track">
+                  <div class="ws4k-spc-bar" data-w="${targetPct}" style="width:0%;background:${meta.color}">${barContent}</div>
+                  ${noRiskLabel}
+                </div>
+              </div>`;
+        }).join('');
+
+        container.innerHTML = `
+          <div class="ws4k-spc-scale">${scaleBands}</div>
+          <div class="ws4k-spc-days">${dayRows}</div>`;
+
+        // Animate bars: they start at width:0% (set in innerHTML above).
+        // After the browser has painted the initial 0% state, expand to target.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                container.querySelectorAll('.ws4k-spc-bar').forEach(b => {
+                    const targetW = b.dataset.w;
+                    if (targetW) b.style.width = `${targetW}%`;
+                });
+            });
         });
     }
 
@@ -405,6 +521,23 @@ const Displays = (() => {
         const label = el('ticker-label');
         if (label) label.textContent = slideTitle || 'CONDITIONS';
         if (ticker && data.ticker) ticker.textContent = data.ticker;
+    }
+
+    // ── Map visibility callbacks (called from app.js) ───────────────
+    function onRegionalObsVisible() {
+        if (!obsMap) obsMap = createRegionalMap('regional-obs-map');
+        if (obsMap) {
+            obsMap.invalidateSize();
+            if (pendingObsData) renderRegionalObs(pendingObsData);
+        }
+    }
+
+    function onRegionalFcstVisible() {
+        if (!fcstMap) fcstMap = createRegionalMap('regional-fcst-map');
+        if (fcstMap) {
+            fcstMap.invalidateSize();
+            if (pendingFcstData) renderRegionalFcst(pendingFcstData);
+        }
     }
 
     // ── Render all ─────────────────────────────────────────────────
@@ -431,5 +564,6 @@ const Displays = (() => {
         renderPrecipChart, renderAlmanac, renderAirQuality,
         renderRadar, renderAlerts, renderCustomForecast, updateTicker,
         renderTravel, renderRegionalObs, renderRegionalFcst, renderSPCOutlook,
+        onRegionalObsVisible, onRegionalFcstVisible,
     };
 })();
