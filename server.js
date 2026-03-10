@@ -6,11 +6,50 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const webPush = require('web-push');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
 app.use(express.json());
+
+// ── Build hash (automatic cache busting) ───────────────────────
+// Hash all local JS, CSS, and HTML files so that any code change
+// produces a new CACHE_VERSION in the service worker, forcing the
+// browser to install the new SW and discard stale cached assets.
+function computeBuildHash() {
+    const hash = crypto.createHash('sha256');
+    for (const sub of ['js', 'css']) {
+        try {
+            const dir = path.join(__dirname, sub);
+            fs.readdirSync(dir)
+                .filter(f => f.endsWith(`.${sub}`))
+                .sort()
+                .forEach(f => hash.update(fs.readFileSync(path.join(dir, f))));
+        } catch { /* skip if directory missing */ }
+    }
+    for (const f of ['index.html', 'admin.html']) {
+        try { hash.update(fs.readFileSync(path.join(__dirname, f))); } catch { /* skip */ }
+    }
+    return hash.digest('hex').slice(0, 8);
+}
+
+const BUILD_HASH = computeBuildHash();
+console.log(`[Server] Build hash: ${BUILD_HASH}`);
+
+// Pre-process sw.js once: replace the hardcoded CACHE_VERSION with
+// the computed hash so it changes automatically on every deploy.
+const SW_CONTENT = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8')
+    .replace(/const CACHE_VERSION = ['"`][^'"`]*['"`]/, `const CACHE_VERSION = 'shelly-${BUILD_HASH}'`);
+
+// ── Service worker (dynamic, must be before express.static) ────
+// Served as a route so the injected CACHE_VERSION is always fresh.
+app.get('/sw.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(SW_CONTENT);
+});
 
 // ── Static files ───────────────────────────────────────────────
 app.use(express.static(__dirname, {
@@ -19,9 +58,9 @@ app.use(express.static(__dirname, {
         if (filePath.endsWith('.ogg')) res.setHeader('Content-Type', 'audio/ogg');
         if (filePath.endsWith('.flac')) res.setHeader('Content-Type', 'audio/flac');
         if (filePath.endsWith('.m4a')) res.setHeader('Content-Type', 'audio/mp4');
-        // Service worker must be served at root scope
-        if (filePath.endsWith('sw.js')) {
-            res.setHeader('Service-Worker-Allowed', '/');
+        // HTML pages must never be served stale so the browser always
+        // gets the latest markup (and triggers a SW update check).
+        if (filePath.endsWith('.html')) {
             res.setHeader('Cache-Control', 'no-cache');
         }
         res.setHeader('Accept-Ranges', 'bytes');
