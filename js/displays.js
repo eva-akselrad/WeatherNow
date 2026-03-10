@@ -279,20 +279,24 @@ const Displays = (() => {
         const dayLabel = el('travel-day-label');
         if (dayLabel) {
             const today = new Date();
-            dayLabel.textContent = `Travel Forecast — ${today.toLocaleDateString('en-US', { weekday: 'long' })}`;
+            dayLabel.textContent = `Travel Forecast \u2014 ${today.toLocaleDateString('en-US', { weekday: 'long' })}`;
         }
 
         if (!cities.length) {
             rows.innerHTML = '<div class="no-alerts" style="margin:auto">📡 Fetching city data…</div>';
         } else {
-            rows.innerHTML = cities.map(city => `
-              <div class="ws4k-city-row">
-                <span class="ws4k-city-name">${esc(city.name)}</span>
-                <span class="ws4k-city-icon">${city.icon || '?'}</span>
-                <span class="ws4k-city-lo">${esc(stripDeg(city.lo))}</span>
-                <span class="ws4k-city-hi">${esc(stripDeg(city.hi))}</span>
-              </div>
-            `).join('');
+            rows.innerHTML = cities.map(city => {
+                const stateBadge = city.state
+                    ? `<span class="ws4k-city-state">${esc(city.state)}</span>`
+                    : '';
+                return `
+                  <div class="ws4k-city-row">
+                    <span class="ws4k-city-name">${esc(city.name)}${stateBadge}</span>
+                    <span class="ws4k-city-icon">${city.icon || '?'}</span>
+                    <span class="ws4k-city-lo">${esc(stripDeg(city.lo))}</span>
+                    <span class="ws4k-city-hi">${esc(stripDeg(city.hi))}</span>
+                  </div>`;
+            }).join('');
         }
 
         const footer = el('travel-footer');
@@ -330,12 +334,15 @@ const Displays = (() => {
             keyboard: false,
         });
 
-        // CartoDB Dark Matter — dark grey map that matches the app theme.
-        // Note: plain {z}/{x}/{y}.png — no {r} retina placeholder since
-        // L.tileLayer does not resolve {r} automatically and it causes 404s.
+        // OpenStreetMap tiles — reliably reachable across all networks.
+        // CSS invert filter on .leaflet-tile-pane makes them appear dark.
         L.tileLayer(
-            'https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}.png',
-            { maxZoom: 10, subdomains: 'abcd', crossOrigin: 'anonymous' }
+            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            {
+                maxZoom: 19,
+                crossOrigin: 'anonymous',
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+            }
         ).addTo(map);
 
         return map;

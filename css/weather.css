@@ -2414,63 +2414,88 @@ body.kiosk-mode #music-controls {
 }
 
 /* ── Travel Forecast ──────────────────────────────────────────── */
+/* ── Travel Forecast (WeatherStar 4000+ style) ────────────────── */
 .ws4k-travel-layout {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+    background: linear-gradient(160deg, #0f1520 0%, #0a0d14 100%);
 }
 
+/* Title banner */
 .ws4k-travel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 28px;
-    border-bottom: 2px solid var(--border-strong);
+    padding: 0 32px;
+    height: 58px;
     flex-shrink: 0;
-    background: var(--bg-card);
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.18) 0%, transparent 60%);
+    border-bottom: 2px solid rgba(239, 68, 68, 0.5);
 }
 
 .ws4k-travel-day {
     font-family: var(--font-display);
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    letter-spacing: 0.08em;
+    font-size: clamp(1rem, 2.2vw, 1.5rem);
+    font-weight: 900;
+    color: var(--text-accent);
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
+/* Column header labels (LOW / HIGH) right-aligned over the temp columns */
 .ws4k-col-headers {
     display: flex;
     gap: 0;
     flex-shrink: 0;
 }
 
-.ws4k-col-headers span {
+.ws4k-col-headers .col-lo {
     font-family: var(--font-display);
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-accent);
-    width: 90px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #7dd3fc;   /* cool blue for lows */
+    width: 96px;
     text-align: right;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
 }
 
+.ws4k-col-headers .col-hi {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #fb923c;   /* warm orange for highs */
+    width: 96px;
+    text-align: right;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+/* Row list */
 .ws4k-travel-rows {
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: space-evenly;
-    padding: 0 28px;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
 }
 
 .ws4k-city-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
+    gap: 0;
+    padding: 0 32px;
+    min-height: 0;
+    flex: 1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Alternating row tint for easy scanning */
+.ws4k-city-row:nth-child(odd) {
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .ws4k-city-row:last-child {
@@ -2480,32 +2505,59 @@ body.kiosk-mode #music-controls {
 .ws4k-city-name {
     flex: 1;
     font-family: var(--font-display);
-    font-size: clamp(1.2rem, 3vw, 2rem);
-    font-weight: 700;
-    color: var(--text-accent);
-    letter-spacing: 0.03em;
+    font-size: clamp(1.1rem, 2.8vw, 1.9rem);
+    font-weight: 800;
+    color: #e2e8f0;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+/* State abbreviation badge inline with city name */
+.ws4k-city-state {
+    font-family: var(--font-mono);
+    font-size: 0.7em;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
 }
 
 .ws4k-city-icon {
-    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
-    width: 56px;
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    width: 62px;
     text-align: center;
     flex-shrink: 0;
     line-height: 1;
 }
 
-.ws4k-city-lo,
-.ws4k-city-hi {
+/* Low temp — cool blue */
+.ws4k-city-lo {
     font-family: var(--font-display);
-    font-size: clamp(1.2rem, 3vw, 2rem);
-    font-weight: 700;
-    color: var(--text-accent);
-    width: 90px;
+    font-size: clamp(1.2rem, 3vw, 2.1rem);
+    font-weight: 900;
+    color: #7dd3fc;
+    width: 96px;
     text-align: right;
     flex-shrink: 0;
+    letter-spacing: -0.02em;
+}
+
+/* High temp — warm orange */
+.ws4k-city-hi {
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 3vw, 2.1rem);
+    font-weight: 900;
+    color: #fb923c;
+    width: 96px;
+    text-align: right;
+    flex-shrink: 0;
+    letter-spacing: -0.02em;
 }
 
 /* ── WS4K Footer bar (shared by travel + map slides) ─────────── */
@@ -2528,12 +2580,17 @@ body.kiosk-mode #music-controls {
     flex: 1;
     min-height: 0;
     position: relative;
-    background: #0d1117; /* dark fallback when tiles haven't loaded yet */
+    background: #1a1e2a; /* dark fallback while tiles load */
 }
 
-/* Force Leaflet's own background pane to dark */
+/* Force Leaflet's own container background to dark so no white flash */
 .ws4k-map-container .leaflet-container {
-    background: #0d1117 !important;
+    background: #1a1e2a !important;
+}
+
+/* Invert OSM tiles to produce a dark map; hue-rotate corrects greens→blues */
+.ws4k-map-container .leaflet-tile-pane {
+    filter: invert(100%) hue-rotate(180deg) brightness(0.82) contrast(1.1) saturate(0.9);
 }
 
 /* Attribution: barely visible so it doesn't clutter */
@@ -2541,7 +2598,7 @@ body.kiosk-mode #music-controls {
     font-size: 0.55rem;
     opacity: 0.35;
     background: rgba(0, 0, 0, 0.55) !important;
-    color: #666 !important;
+    color: #aaa !important;
 }
 
 /* Map title/badge overlay */
