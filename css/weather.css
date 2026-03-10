@@ -2920,6 +2920,62 @@ body.kiosk-mode #music-controls {
     .top-bar {
         padding: 8px 12px;
     }
+
+    /* ── Travel Forecast: tighten for tablet/large phone ──────────── */
+    .ws4k-travel-header {
+        padding: 0 16px;
+        height: 48px;
+    }
+
+    .ws4k-city-row {
+        padding: 0 16px;
+    }
+
+    .ws4k-city-lo,
+    .ws4k-city-hi {
+        width: 70px;
+    }
+
+    .ws4k-col-headers .col-lo,
+    .ws4k-col-headers .col-hi {
+        width: 70px;
+    }
+
+    .ws4k-city-icon {
+        width: 44px;
+    }
+
+    .ws4k-footer-bar {
+        padding: 8px 16px;
+    }
+
+    /* ── SPC Outlook: shrink day-name column so bars have room ──────── */
+    .ws4k-spc-layout {
+        --spc-day-col: 120px;
+        padding: 16px 20px;
+        gap: 14px;
+    }
+
+    .ws4k-spc-bar-track {
+        height: 60px;
+    }
+
+    .ws4k-spc-days {
+        gap: 12px;
+    }
+
+    /* ── Regional map: smaller markers so they don't crowd the map ───── */
+    .ws4k-marker-temp {
+        font-size: 1.2rem;
+    }
+
+    .ws4k-marker-icon {
+        font-size: 1rem;
+    }
+
+    .ws4k-marker-name {
+        font-size: 0.65rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -2953,5 +3009,87 @@ body.kiosk-mode #music-controls {
     /* Slide title smaller on phone */
     .slide-title {
         font-size: 1.1rem;
+    }
+
+    /* ── Travel Forecast: compact for small phones ─────────────────── */
+    .ws4k-travel-header {
+        padding: 0 12px;
+        height: 42px;
+    }
+
+    .ws4k-travel-day {
+        font-size: 0.9rem;
+    }
+
+    .ws4k-city-row {
+        padding: 0 12px;
+    }
+
+    .ws4k-city-lo,
+    .ws4k-city-hi {
+        width: 54px;
+        font-size: 1.1rem;
+    }
+
+    .ws4k-col-headers .col-lo,
+    .ws4k-col-headers .col-hi {
+        width: 54px;
+        font-size: 0.72rem;
+    }
+
+    .ws4k-city-icon {
+        width: 36px;
+        font-size: 1.3rem;
+    }
+
+    .ws4k-city-name {
+        font-size: 1rem;
+    }
+
+    /* ── SPC Outlook: minimal layout for phones ─────────────────────── */
+    .ws4k-spc-layout {
+        --spc-day-col: 88px;
+        padding: 12px 14px;
+        gap: 10px;
+    }
+
+    /* Hide scale legend — too cramped on phone */
+    .ws4k-spc-scale-wrapper {
+        display: none;
+    }
+
+    .ws4k-spc-bar-track {
+        height: 52px;
+    }
+
+    .ws4k-spc-days {
+        gap: 8px;
+    }
+
+    .ws4k-spc-day-name {
+        font-size: 1rem;
+    }
+
+    .ws4k-spc-norisk-text {
+        font-size: 0.7rem;
+    }
+
+    /* ── Regional map: tightest marker sizes ─────────────────────────── */
+    .ws4k-marker-temp {
+        font-size: 1rem;
+    }
+
+    .ws4k-marker-icon {
+        font-size: 0.9rem;
+    }
+
+    .ws4k-marker-name {
+        font-size: 0.58rem;
+        padding: 0 2px;
+    }
+
+    .ws4k-footer-bar {
+        padding: 7px 12px;
+        font-size: 0.72rem;
     }
 }
