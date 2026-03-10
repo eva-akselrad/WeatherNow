@@ -61,7 +61,7 @@ const RadarMap = (() => {
       // at higher map zooms Leaflet upscales the zoom-6 tile instead.
       maxNativeZoom: 6,
       attribution:
-        '<a href="https://rainviewer.com" target="_blank">RainViewer</a>',
+        '<a href="https://rainviewer.com" target="_blank" rel="noopener noreferrer">RainViewer</a>',
     });
   }
 
