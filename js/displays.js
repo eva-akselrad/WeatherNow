@@ -334,14 +334,13 @@ const Displays = (() => {
             keyboard: false,
         });
 
-        // OpenStreetMap tiles — reliably reachable across all networks.
-        // CSS invert filter on .leaflet-tile-pane makes them appear dark.
+        // Same CartoDB Dark All tiles as the radar slide — already dark, no filter needed.
         L.tileLayer(
-            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
             {
-                maxZoom: 19,
-                crossOrigin: 'anonymous',
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+                attribution: '© <a href="https://www.openstreetmap.org">OSM</a> © <a href="https://carto.com/">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 15,
             }
         ).addTo(map);
 

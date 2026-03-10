@@ -2580,17 +2580,12 @@ body.kiosk-mode #music-controls {
     flex: 1;
     min-height: 0;
     position: relative;
-    background: #1a1e2a; /* dark fallback while tiles load */
+    background: #0d1117; /* dark fallback while CartoDB tiles load */
 }
 
 /* Force Leaflet's own container background to dark so no white flash */
 .ws4k-map-container .leaflet-container {
-    background: #1a1e2a !important;
-}
-
-/* Invert OSM tiles to produce a dark map; hue-rotate corrects greens→blues */
-.ws4k-map-container .leaflet-tile-pane {
-    filter: invert(100%) hue-rotate(180deg) brightness(0.82) contrast(1.1) saturate(0.9);
+    background: #0d1117 !important;
 }
 
 /* Attribution: barely visible so it doesn't clutter */
