@@ -22,6 +22,7 @@ const RadarMap = (() => {
   let pendingLat = null;
   let pendingLon = null;
   let refreshTimer = null;
+  let building = false; // in-flight guard for buildFrames
 
   const FRAME_COUNT = 6;
   const ANIM_INTERVAL = 700; // ms per animation step
@@ -67,29 +68,40 @@ const RadarMap = (() => {
 
   // ── Build all animation frames ─────────────────────────────────
   async function buildFrames() {
-    // Remove old radar layers
-    frames.forEach((f) => {
-      if (map.hasLayer(f.layer)) map.removeLayer(f.layer);
-    });
-    frames = [];
+    // Prevent concurrent runs (two-stage location bootstrap fires render() twice)
+    if (building) return;
+    building = true;
+    try {
+      // Fetch new frames *before* touching existing layers so the radar stays
+      // visible if the API call fails or returns nothing.
+      const rvFrames = await fetchRainViewerFrames();
+      if (!rvFrames.length) {
+        console.warn("No radar frames available from RainViewer");
+        return;
+      }
 
-    const rvFrames = await fetchRainViewerFrames();
-    if (!rvFrames.length) {
-      console.warn("No radar frames available from RainViewer");
-      return;
+      // We have fresh frames – safe to replace the old ones.
+      frames.forEach((f) => {
+        if (map.hasLayer(f.layer)) map.removeLayer(f.layer);
+      });
+      frames = [];
+
+      rvFrames.forEach(({ time, path }) => {
+        const layer = makeRVLayer(path);
+        layer.addTo(map);
+        frames.push({ dt: new Date(time * 1000), layer });
+      });
+
+      currentFrame = frames.length - 1;
+      showFrame(currentFrame);
+      buildDots();
+      updateTimestamp();
+      if (animating) startAnimation();
+    } catch (e) {
+      console.warn("buildFrames error:", e);
+    } finally {
+      building = false;
     }
-
-    rvFrames.forEach(({ time, path }) => {
-      const layer = makeRVLayer(path);
-      layer.addTo(map);
-      frames.push({ dt: new Date(time * 1000), layer });
-    });
-
-    currentFrame = frames.length - 1;
-    showFrame(currentFrame);
-    buildDots();
-    updateTimestamp();
-    if (animating) startAnimation();
   }
 
   // ── Show one frame ────────────────────────────────────────────
