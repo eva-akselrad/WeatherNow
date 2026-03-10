@@ -55,6 +55,11 @@ const RadarMap = (() => {
       tileSize: 256,
       opacity: 0, // hidden until showFrame makes it visible
       zIndex: 200,
+      // RainViewer 256-px tiles are only rendered for zoom levels 0–6.
+      // Setting maxNativeZoom prevents Leaflet from requesting unsupported
+      // zoom levels (which return a "Zoom Level Not Supported" error image);
+      // at higher map zooms Leaflet upscales the zoom-6 tile instead.
+      maxNativeZoom: 6,
       attribution:
         '<a href="https://rainviewer.com" target="_blank">RainViewer</a>',
     });
@@ -180,7 +185,7 @@ const RadarMap = (() => {
 
     map = L.map("radar-map", {
       center: [lat, lon],
-      zoom: 10,
+      zoom: 7,
       zoomControl: true,
       attributionControl: true,
       scrollWheelZoom: true,

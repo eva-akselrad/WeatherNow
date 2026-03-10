@@ -6,7 +6,7 @@
    • Handles Web Push notifications
    ════════════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = 'shelly-v2';
+const CACHE_VERSION = 'shelly-v3';
 const APP_SHELL = [
     '/',
     '/index.html',
