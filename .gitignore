@@ -1,3 +1,4 @@
 node_modules/
 .vapid-keys.json
 tasks.md
+leaflet*.tgz
