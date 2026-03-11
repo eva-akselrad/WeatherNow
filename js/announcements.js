@@ -201,11 +201,31 @@ const Announcements = (() => {
         document.body.appendChild(overlay);
         requestAnimationFrame(() => overlay.classList.add('popup-visible'));
 
+        // Autoscroll the body if content overflows (starts after 1.5 s pause)
+        const bodyEl = overlay.querySelector('.announce-popup-body');
+        let scrollTimer = null;
+        if (bodyEl) {
+            scrollTimer = setTimeout(() => {
+                if (bodyEl.scrollHeight > bodyEl.clientHeight) {
+                    const scrollDuration = (bodyEl.scrollHeight - bodyEl.clientHeight) * 30; // ~30 ms/px
+                    bodyEl.style.scrollBehavior = 'smooth';
+                    const step = () => {
+                        if (!overlay.isConnected) return;
+                        bodyEl.scrollTop += 1;
+                        if (bodyEl.scrollTop < bodyEl.scrollHeight - bodyEl.clientHeight) {
+                            requestAnimationFrame(step);
+                        }
+                    };
+                    requestAnimationFrame(step);
+                }
+            }, 1500);
+        }
+
         if (msg.duration > 0) {
             const bar = overlay.querySelector('.announce-popup-timer-bar');
             if (bar) bar.style.transitionDuration = `${msg.duration}s`;
             setTimeout(() => { if (bar) bar.style.width = '0%'; }, 50);
-            setTimeout(doClose, msg.duration * 1000);
+            setTimeout(() => { clearTimeout(scrollTimer); doClose(); }, msg.duration * 1000);
         }
     }
 
