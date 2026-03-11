@@ -67,6 +67,10 @@ const AlertsManager = (() => {
             el.textContent = orig;  // restore single copy if no scroll needed
         } else {
             el.classList.remove('no-scroll');
+            // Scale duration with text width so long messages don't scroll too fast (~80 px/s)
+            const textPx = el.scrollWidth / 2;
+            const duration = Math.max(10, Math.round(textPx / 80));
+            el.style.animationDuration = `${duration}s`;
         }
     }
 

@@ -232,30 +232,56 @@ const Displays = (() => {
     }
 
     // ── Custom Forecast ────────────────────────────────────────────
-    function renderCustomForecast(cf) {        const container = el('customforecast-container');
+    function renderCustomForecast(forecasts) {
+        const container = el('customforecast-container');
         if (!container) return;
         container.innerHTML = '';
-        const periods = cf?.periods || [];
-        if (!periods.length) return;
-        periods.forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'day-card';
-            const hiLoHtml = (p.hi || p.lo)
-                ? `<div class="day-hi-lo">${p.hi ? `<span class="day-hi">${esc(p.hi)}</span>` : ''}${p.lo ? `<span class="day-lo">${esc(p.lo)}</span>` : ''}</div>`
-                : '';
-            card.innerHTML = `
-              <div class="day-name">${esc(p.name || '')}</div>
-              <div class="day-icon">${esc(p.icon || '🌤')}</div>
-              ${p.desc ? `<div class="day-desc markdown-body">${(typeof marked !== 'undefined' ? marked.parse(p.desc, { breaks: true }) : esc(p.desc))}</div>` : ''}
-              ${hiLoHtml}
-              ${p.precip ? `<div class="day-precip">💧 ${esc(String(p.precip))}%</div>` : ''}
-              ${p.wind ? `<div class="day-wind">💨 ${esc(p.wind)}</div>` : ''}
-            `;
-            container.appendChild(card);
+        // Accept array (new) or single object (legacy)
+        const all = Array.isArray(forecasts) ? forecasts : (forecasts?.periods?.length ? [forecasts] : []);
+        if (!all.length) return;
+
+        all.forEach((cf, cfIdx) => {
+            const periods = cf?.periods || [];
+            if (!periods.length) return;
+
+            const section = document.createElement('div');
+            section.className = 'cf-section';
+            section.dataset.count = String(periods.length);
+
+            // Label header when multiple forecasts are active
+            if (all.length > 1 && cf.label) {
+                const header = document.createElement('div');
+                header.className = 'cf-section-label';
+                header.textContent = cf.label;
+                section.appendChild(header);
+            }
+
+            periods.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'day-card';
+                const hiLoHtml = (p.hi || p.lo)
+                    ? `<div class="day-hi-lo">${p.hi ? `<span class="day-hi">${esc(p.hi)}</span>` : ''}${p.lo ? `<span class="day-lo">${esc(p.lo)}</span>` : ''}</div>`
+                    : '';
+                card.innerHTML = `
+                  <div class="day-name">${esc(p.name || '')}</div>
+                  <div class="day-icon">${esc(p.icon || '🌤')}</div>
+                  ${p.desc ? `<div class="day-desc markdown-body">${(typeof marked !== 'undefined' ? marked.parse(p.desc, { breaks: true }) : esc(p.desc))}</div>` : ''}
+                  ${hiLoHtml}
+                  ${p.precip ? `<div class="day-precip">💧 ${esc(String(p.precip))}%</div>` : ''}
+                  ${p.wind ? `<div class="day-wind">💨 ${esc(p.wind)}</div>` : ''}
+                `;
+                section.appendChild(card);
+            });
+
+            container.appendChild(section);
         });
+
         const updatedEl = el('customforecast-updated');
-        if (updatedEl && cf?.updatedAt) {
-            updatedEl.textContent = `Updated: ${new Date(cf.updatedAt).toLocaleString()}`;
+        if (updatedEl) {
+            const latest = all.reduce((a, b) => ((a?.updatedAt ?? 0) > (b?.updatedAt ?? 0) ? a : b), all[0]);
+            if (latest?.updatedAt) {
+                updatedEl.textContent = `Updated: ${new Date(latest.updatedAt).toLocaleString()}`;
+            }
         }
     }
 
@@ -527,7 +553,18 @@ const Displays = (() => {
         const ticker = el('ticker-text');
         const label = el('ticker-label');
         if (label) label.textContent = slideTitle || 'CONDITIONS';
-        if (ticker && data.ticker) ticker.textContent = data.ticker;
+        if (ticker && data.ticker) {
+            ticker.textContent = data.ticker;
+            // Scale scroll duration with text length so long condition strings don't fly by (~80 px/s)
+            requestAnimationFrame(() => {
+                const containerW = ticker.parentElement?.clientWidth || 800;
+                const textW = ticker.scrollWidth;
+                // Animation travels from +100% to -100% of container = containerW + textW pixels total
+                const totalPx = containerW + textW;
+                const duration = Math.max(15, Math.round(totalPx / 80));
+                ticker.style.animationDuration = `${duration}s`;
+            });
+        }
     }
 
     // ── Map visibility callbacks (called from app.js) ───────────────
@@ -558,7 +595,7 @@ const Displays = (() => {
         renderAirQuality(weatherData);
         renderRadar(lat, lon);
         renderAlerts(alerts, onTTS);
-        renderCustomForecast(weatherData.customForecast);
+        renderCustomForecast(weatherData.customForecasts);
         renderTravel(weatherData);
         renderRegionalObs(weatherData);
         renderRegionalFcst(weatherData);

@@ -618,8 +618,8 @@ const WeatherAPI = (() => {
             fetchAirQuality(currentLat, currentLon),
             fetchAlerts(currentLat, currentLon),
             fetch('/api/custom-forecast', { cache: 'no-store' })
-                .then(r => r.ok ? r.json() : { periods: [], updatedAt: null })
-                .catch(() => ({ periods: [], updatedAt: null })),
+                .then(r => r.ok ? r.json() : [])
+                .catch(() => []),
             fetchNearbyCities(currentLat, currentLon, 8).catch(() => []),
             fetchTravelCities(
                 typeof DEFAULT_TRAVEL_CITIES !== 'undefined' ? DEFAULT_TRAVEL_CITIES : []
@@ -628,7 +628,7 @@ const WeatherAPI = (() => {
         ]);
 
         weatherData = processData(raw, aq);
-        weatherData.customForecast = cf;
+        weatherData.customForecasts = Array.isArray(cf) ? cf : (cf?.periods?.length ? [cf] : []);
         weatherData.nearbyCities = nearbyCities;
         weatherData.travelCities = travelCities;
         weatherData.spcOutlook = processSPCOutlook(spcRaw, currentLat, currentLon);

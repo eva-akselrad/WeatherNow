@@ -185,6 +185,13 @@
         <section class="settings-section">
             <h3>🖥 Kiosk Mode</h3>
             <p class="hint-text">Fullscreen, hides all controls. Press <kbd>Esc</kbd> to exit.</p>
+            <div class="toggle-row" style="margin-bottom:10px">
+                <span>Autoplay music on entry</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="kiosk-autoplay-music" />
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
             <button id="kiosk-btn" class="btn-kiosk">⛶ Enter Kiosk Mode</button>
         </section>
 
@@ -459,7 +466,7 @@
                     <span class="slide-title">Custom Forecast</span>
                     <span class="slide-badge" style="background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.3)">CUSTOM</span>
                 </div>
-                <div id="customforecast-container" class="extended-container"></div>
+                <div id="customforecast-container" class="cf-container"></div>
                 <div id="customforecast-updated" style="text-align:center;font-size:0.65rem;color:var(--text-secondary);margin-top:8px;padding-bottom:4px"></div>
             </div>
 

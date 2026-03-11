@@ -926,8 +926,14 @@
         <div class="card">
             <div class="card-title">🌤 Custom Forecast</div>
             <p style="font-size:.82rem;color:var(--muted);margin-bottom:18px">Build your own forecast periods. Only fill
-                in the fields you want — everything is optional except the period name. Published forecasts appear as a
-                dedicated slide on the weather display.</p>
+                in the fields you want — everything is optional except the period name. You can publish multiple
+                forecasts at once (e.g. for different areas). Each forecast needs a unique label.</p>
+
+            <!-- Forecast label (used to identify this forecast among multiple) -->
+            <div class="fc-field" style="margin-bottom:14px">
+                <label>Forecast Label <span style="font-size:.72rem;color:var(--muted)">(optional — used to distinguish multiple forecasts)</span></label>
+                <input type="text" id="fc-label" placeholder="e.g. Downtown, North Suburbs, Airport…" style="width:100%" />
+            </div>
 
             <div id="fc-periods"></div>
 
@@ -998,7 +1004,7 @@
 
             <div class="fc-btn-row">
                 <button class="send-btn" id="fc-publish-btn" style="flex:1">📡 PUBLISH FORECAST</button>
-                <button class="fc-clear-btn" id="fc-clear-btn">Clear Forecast</button>
+                <button class="fc-clear-btn" id="fc-clear-btn">Clear All Forecasts</button>
             </div>
             <div id="fc-feedback" style="text-align:center;font-size:.82rem;margin-top:10px;min-height:18px"></div>
 
@@ -1105,6 +1111,11 @@
                 document.getElementById('fc-add-btn').addEventListener('click', () => addFcPeriod());
                 document.getElementById('fc-publish-btn').addEventListener('click', publishForecast);
                 document.getElementById('fc-clear-btn').addEventListener('click', clearForecast);
+                // Delegated remove buttons in the preview list
+                document.getElementById('fc-active-list').addEventListener('click', e => {
+                    const btn = e.target.closest('[data-fc-delete]');
+                    if (btn) deleteForecast(parseInt(btn.dataset.fcDelete, 10));
+                });
                 initTargetingUI();
 
                 checkHealth();
@@ -1403,17 +1414,22 @@
                 if (hasError) { fcFeedback('⚠ All period rows need a name.', '#f59e0b'); return; }
                 if (!periods.length) { fcFeedback('⚠ Add at least one forecast period.', '#f59e0b'); return; }
                 const targeting = getTargetingData();
+                const label = document.getElementById('fc-label')?.value.trim() || '';
                 const btn = document.getElementById('fc-publish-btn');
                 btn.disabled = true;
                 try {
                     const r = await fetch(`${API}/custom-forecast`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-                        body: JSON.stringify({ periods, targeting })
+                        body: JSON.stringify({ periods, targeting, label })
                     });
                     if (!r.ok) throw new Error();
                     playChime();
                     fcFeedback(`✓ Forecast published! (${periods.length} period${periods.length !== 1 ? 's' : ''})`, '#22c55e');
+                    // Clear the builder form for the next forecast
+                    document.getElementById('fc-periods').innerHTML = '';
+                    document.getElementById('fc-label').value = '';
+                    setTargetingMode('all');
                     loadCustomForecast();
                 } catch {
                     fcFeedback('⚠ Failed to publish forecast.', '#ef4444');
@@ -1422,18 +1438,32 @@
                 }
             }
 
+            async function deleteForecast(id) {
+                if (!confirm('Remove this forecast from the display?')) return;
+                try {
+                    await fetch(`${API}/custom-forecast/${id}`, {
+                        method: 'DELETE', headers: { 'x-admin-password': adminPassword }
+                    });
+                    fcFeedback('✓ Forecast removed.', '#22c55e');
+                    loadCustomForecast();
+                } catch {
+                    fcFeedback('⚠ Failed to remove forecast.', '#ef4444');
+                }
+            }
+
             async function clearForecast() {
-                if (!confirm('Clear the custom forecast from the display?')) return;
+                if (!confirm('Clear ALL custom forecasts from the display?')) return;
                 try {
                     await fetch(`${API}/custom-forecast`, {
                         method: 'DELETE', headers: { 'x-admin-password': adminPassword }
                     });
-                    fcFeedback('✓ Forecast cleared.', '#22c55e');
+                    fcFeedback('✓ All forecasts cleared.', '#22c55e');
                     document.getElementById('fc-periods').innerHTML = '';
+                    document.getElementById('fc-label').value = '';
                     setTargetingMode('all');
                     loadCustomForecast();
                 } catch {
-                    fcFeedback('⚠ Failed to clear forecast.', '#ef4444');
+                    fcFeedback('⚠ Failed to clear forecasts.', '#ef4444');
                 }
             }
 
@@ -1441,35 +1471,40 @@
                 try {
                     const r = await fetch(`${API}/custom-forecast`, { headers: { 'x-admin-password': adminPassword } });
                     if (!r.ok) return;
-                    const cf = await r.json();
-                    renderFcPreview(cf);
-                    // Repopulate the builder if no rows are present and there is published data
-                    const periodsEl = document.getElementById('fc-periods');
-                    if (periodsEl && !periodsEl.children.length && cf.periods?.length) {
-                        cf.periods.forEach(p => addFcPeriod(p));
-                    }
-                    // Restore targeting state
-                    if (cf.targeting) restoreTargeting(cf.targeting);
+                    const data = await r.json();
+                    // API now returns an array
+                    const forecasts = Array.isArray(data) ? data : (data?.periods?.length ? [data] : []);
+                    renderFcPreview(forecasts);
                 } catch { /* ignore */ }
             }
 
-            function renderFcPreview(cf) {
+            function renderFcPreview(forecasts) {
                 const preview = document.getElementById('fc-active-preview');
                 const list = document.getElementById('fc-active-list');
                 if (!preview || !list) return;
-                if (!cf?.periods?.length) { preview.style.display = 'none'; return; }
+                if (!forecasts?.length) { preview.style.display = 'none'; return; }
                 preview.style.display = 'block';
-                const updated = cf.updatedAt ? ` — Updated ${new Date(cf.updatedAt).toLocaleString()}` : '';
-                const targetingLabel = targetingSummary(cf.targeting);
-                list.innerHTML = cf.periods.map(p =>
-                    `<div style="padding:4px 0;border-bottom:1px solid var(--border)">
-                        <strong>${esc(p.name)}</strong>${p.icon ? ` ${esc(p.icon)}` : ''}
-                        ${p.hi || p.lo ? ` · ${[p.hi, p.lo].filter(Boolean).map(esc).join(' / ')}` : ''}
-                        ${p.desc ? ` · ${esc(p.desc)}` : ''}
-                        ${p.precip ? ` · 💧${esc(String(p.precip))}%` : ''}
-                        ${p.wind ? ` · 💨${esc(p.wind)}` : ''}
-                    </div>`
-                ).join('') + `<div style="font-size:.65rem;color:var(--muted);margin-top:6px">📍 ${esc(targetingLabel)}${esc(updated)}</div>`;
+                list.innerHTML = forecasts.map(cf => {
+                    const updated = cf.updatedAt ? ` — Updated ${new Date(cf.updatedAt).toLocaleString()}` : '';
+                    const targetingLabel = targetingSummary(cf.targeting);
+                    const labelHtml = cf.label ? `<strong style="color:var(--text)">${esc(cf.label)}</strong> · ` : '';
+                    const periodsHtml = cf.periods.map(p =>
+                        `<div style="padding:3px 0 3px 8px;border-left:2px solid var(--border)">
+                            <strong>${esc(p.name)}</strong>${p.icon ? ` ${esc(p.icon)}` : ''}
+                            ${p.hi || p.lo ? ` · ${[p.hi, p.lo].filter(Boolean).map(esc).join(' / ')}` : ''}
+                            ${p.desc ? ` · ${esc(p.desc)}` : ''}
+                            ${p.precip ? ` · 💧${esc(String(p.precip))}%` : ''}
+                            ${p.wind ? ` · 💨${esc(p.wind)}` : ''}
+                        </div>`
+                    ).join('');
+                    return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                            <span>${labelHtml}${esc(cf.periods.length)} period${cf.periods.length !== 1 ? 's' : ''} · 📍 ${esc(targetingLabel)}${esc(updated)}</span>
+                            <button data-fc-delete="${cf.id}" style="font-size:.72rem;padding:2px 8px;cursor:pointer;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);border-radius:4px;color:var(--danger);flex-shrink:0;margin-left:8px">✕ Remove</button>
+                        </div>
+                        ${periodsHtml}
+                    </div>`;
+                }).join('');
             }
 
             function targetingSummary(t) {

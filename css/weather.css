@@ -1400,6 +1400,83 @@ body {
     overflow-y: auto;
 }
 
+/* ── Custom Forecast container (holds one or more cf-sections) ── */
+.cf-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    height: calc(100% - 80px);
+    overflow-y: auto;
+}
+
+/* Each forecast area is its own responsive grid */
+.cf-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 14px;
+}
+
+/* Scale up when there are very few periods so they fill the screen */
+.cf-section[data-count="1"] {
+    grid-template-columns: 1fr;
+    flex: 1;
+}
+.cf-section[data-count="1"] .day-card {
+    padding: 32px 24px;
+    gap: 16px;
+}
+.cf-section[data-count="1"] .day-icon {
+    font-size: 5rem;
+}
+.cf-section[data-count="1"] .day-name {
+    font-size: 1.3rem;
+}
+.cf-section[data-count="1"] .day-hi-lo {
+    font-size: 1.4rem;
+}
+.cf-section[data-count="1"] .day-desc {
+    font-size: 1rem;
+}
+.cf-section[data-count="1"] .day-precip,
+.cf-section[data-count="1"] .day-wind {
+    font-size: 1rem;
+}
+
+.cf-section[data-count="2"] {
+    grid-template-columns: repeat(2, 1fr);
+}
+.cf-section[data-count="2"] .day-card {
+    padding: 24px 18px;
+    gap: 12px;
+}
+.cf-section[data-count="2"] .day-icon {
+    font-size: 3.5rem;
+}
+.cf-section[data-count="2"] .day-name {
+    font-size: 1.1rem;
+}
+.cf-section[data-count="2"] .day-hi-lo {
+    font-size: 1.1rem;
+}
+
+.cf-section[data-count="3"] {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* Section label shown when multiple forecasts are displayed */
+.cf-section-label {
+    grid-column: 1 / -1;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+}
+
 .day-card {
     background: var(--grad-card);
     border: 1px solid var(--border);
@@ -2106,6 +2183,12 @@ body.kiosk-mode .slide-nav:hover {
 
 body.kiosk-mode #music-controls {
     display: none;
+}
+
+/* Hide PWA install prompts in kiosk mode */
+body.kiosk-mode #pwa-install-banner,
+body.kiosk-mode #pwa-guide-modal {
+    display: none !important;
 }
 
 /* ════════════════════════════════════════════════════════════════

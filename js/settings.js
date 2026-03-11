@@ -87,6 +87,9 @@ const Settings = (() => {
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement && isKiosk) exitKiosk();
         });
+
+        // Persist kiosk-autoplay-music toggle
+        document.getElementById('kiosk-autoplay-music')?.addEventListener('change', saveToStorage);
     }
 
     function enterKiosk() {
@@ -95,6 +98,10 @@ const Settings = (() => {
         const fsBtn = document.getElementById('nav-fullscreen');
         if (fsBtn) fsBtn.textContent = '⊠';
         document.documentElement.requestFullscreen?.().catch(() => { });
+        // Autoplay music if the option is enabled
+        if (document.getElementById('kiosk-autoplay-music')?.checked) {
+            if (typeof MusicPlayer !== 'undefined') MusicPlayer.play();
+        }
     }
 
     function exitKiosk() {
@@ -220,6 +227,7 @@ const Settings = (() => {
             tts: document.getElementById('tts-toggle')?.checked ?? true,
             duck: document.getElementById('duck-toggle')?.checked ?? true,
             shuffle: document.getElementById('shuffle-toggle')?.checked ?? true,
+            kioskAutoplayMusic: document.getElementById('kiosk-autoplay-music')?.checked ?? false,
             suppressedTtsTypes: suppressedTypes
         };
     }
@@ -278,6 +286,9 @@ const Settings = (() => {
             }
             if (duckT && state.duck !== undefined) duckT.checked = state.duck;
             if (shuffT && state.shuffle !== undefined) shuffT.checked = state.shuffle;
+
+            const kioskAutoplayT = document.getElementById('kiosk-autoplay-music');
+            if (kioskAutoplayT && state.kioskAutoplayMusic !== undefined) kioskAutoplayT.checked = state.kioskAutoplayMusic;
 
             // Restore suppressed alert types
             if (state.suppressedTtsTypes) {

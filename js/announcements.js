@@ -118,6 +118,10 @@ const Announcements = (() => {
             el.innerHTML = orig;
         } else {
             el.classList.remove('no-scroll');
+            // Scale duration with text width so long messages don't whip by too fast (~80 px/s)
+            const textPx = el.scrollWidth / 2;
+            const duration = Math.max(10, Math.round(textPx / 80));
+            el.style.animationDuration = `${duration}s`;
         }
     }
 

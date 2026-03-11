@@ -52,6 +52,7 @@
     }
 
     function showInstallBanner() {
+        if (document.body.classList.contains('kiosk-mode')) return;
         const banner = getOrCreateBanner();
         banner.classList.remove('pwa-hidden');
     }
@@ -103,6 +104,7 @@
 
     function showBrowserGuide() {
         if (guideShown || isStandalone) return;
+        if (document.body.classList.contains('kiosk-mode')) return;
         guideShown = true;
 
         let instructions = '';

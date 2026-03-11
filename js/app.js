@@ -250,12 +250,9 @@
 
         // Custom Forecast slide – skip if no periods or viewer's location doesn't match targeting
         if (target.display === 'customforecast') {
-            const cf = WeatherAPI.getData()?.customForecast;
-            if (!cf?.periods?.length) {
-                setTimeout(() => goToSlide((idx + 1) % slideIds.length), 50);
-                return;
-            }
-            if (!isInForecastArea(cf.targeting)) {
+            const forecasts = WeatherAPI.getData()?.customForecasts || [];
+            const matching = forecasts.filter(cf => cf?.periods?.length && isInForecastArea(cf.targeting));
+            if (!matching.length) {
                 setTimeout(() => goToSlide((idx + 1) % slideIds.length), 50);
                 return;
             }
@@ -347,6 +344,11 @@
 
             // Build/rebuild slide list
             buildSlideList();
+
+            // Filter custom forecasts to only those that match viewer's location
+            if (weather.customForecasts) {
+                weather.customForecasts = weather.customForecasts.filter(cf => isInForecastArea(cf.targeting));
+            }
 
             // Render all displays
             Displays.renderAll(

@@ -102,7 +102,8 @@ let pushSubscriptions = []; // { endpoint, keys: { auth, p256dh } }
 let releaseNotes = [];
 let releaseNoteId = 1;
 
-let customForecast = { periods: [], targeting: { mode: 'all' }, updatedAt: null };
+let customForecasts = [];  // array of { id, label, periods, targeting, updatedAt }
+let customForecastId = 1;
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'weathernow';
 
@@ -306,21 +307,42 @@ app.delete('/api/release-notes', adminLimiter, (req, res) => {
 });
 
 // ── Custom Forecast ───────────────────────────────────────────
+// Returns array of all custom forecasts
 app.get('/api/custom-forecast', (_, res) => {
-    res.json(customForecast);
+    res.json(customForecasts);
 });
 
+// Add a new forecast (or replace one with same label if label provided)
 app.post('/api/custom-forecast', adminLimiter, (req, res) => {
     if (!checkAuth(req, res)) return;
-    const { periods = [], targeting = { mode: 'all' } } = req.body;
-    customForecast = { periods, targeting, updatedAt: Date.now() };
-    console.log(`[Admin] Custom forecast updated: ${periods.length} period(s), targeting: ${targeting.mode}`);
-    res.json(customForecast);
+    const { periods = [], targeting = { mode: 'all' }, label = '' } = req.body;
+    if (!periods.length) return res.status(400).json({ error: 'periods required' });
+    // If a label is given and a forecast with that label already exists, replace it
+    const existing = label ? customForecasts.findIndex(c => c.label === label) : -1;
+    const entry = { id: existing >= 0 ? customForecasts[existing].id : customForecastId++, label, periods, targeting, updatedAt: Date.now() };
+    if (existing >= 0) {
+        customForecasts[existing] = entry;
+    } else {
+        customForecasts.push(entry);
+    }
+    console.log(`[Admin] Custom forecast ${existing >= 0 ? 'updated' : 'added'}: "${label || entry.id}" — ${periods.length} period(s), targeting: ${targeting.mode}`);
+    res.json(entry);
 });
 
+// Delete a single forecast by id
+app.delete('/api/custom-forecast/:id', adminLimiter, (req, res) => {
+    if (!checkAuth(req, res)) return;
+    const id = parseInt(req.params.id, 10);
+    const before = customForecasts.length;
+    customForecasts = customForecasts.filter(c => c.id !== id);
+    if (customForecasts.length === before) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+});
+
+// Delete all forecasts
 app.delete('/api/custom-forecast', adminLimiter, (req, res) => {
     if (!checkAuth(req, res)) return;
-    customForecast = { periods: [], targeting: { mode: 'all' }, updatedAt: null };
+    customForecasts = [];
     res.json({ ok: true });
 });
 
