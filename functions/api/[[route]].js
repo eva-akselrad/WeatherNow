@@ -180,6 +180,21 @@ export async function onRequest({ request, env }) {
         return json(msgs.filter(m => m.id > since));
     }
 
+    // ── Poll (combined messages + armageddon in one request) ────
+    if (path === '/api/poll' && method === 'GET') {
+        const since = parseInt(url.searchParams.get('since') ?? '0') || 0;
+        const [msgs, armageddon] = await Promise.all([getMessages(env), getArmageddonState(env)]);
+        let armState = armageddon;
+        if (armState?.expiresAt && Date.now() > armState.expiresAt) {
+            await saveArmageddonState(env, null);
+            armState = null;
+        }
+        return json({
+            messages: msgs.filter(m => m.id > since),
+            armageddon: armState ? { active: true, ...armState } : { active: false },
+        });
+    }
+
     if (path === '/api/verify' && method === 'GET') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
         return json({ ok: true });

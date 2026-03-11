@@ -151,6 +151,20 @@ app.get('/api/messages', (req, res) => {
     res.json(messages.filter(m => m.id > since));
 });
 
+// ── GET /api/poll?since=ID ─────────────────────────────────────
+// Combined endpoint: returns messages + armageddon state in one request
+app.get('/api/poll', (req, res) => {
+    const since = parseInt(req.query.since) || 0;
+    if (armageddonState?.expiresAt && Date.now() > armageddonState.expiresAt) {
+        armageddonState = null;
+        console.log('[Admin] Armageddon mode auto-expired');
+    }
+    res.json({
+        messages: messages.filter(m => m.id > since),
+        armageddon: armageddonState ? { active: true, ...armageddonState } : { active: false },
+    });
+});
+
 // ── GET /api/verify ────────────────────────────────────────────
 app.get('/api/verify', (req, res) => {
     if (!checkAuth(req, res)) return;

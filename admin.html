@@ -1370,8 +1370,11 @@
                 loadReleaseNotes();
                 loadCustomForecast();
                 loadArmageddonState();
-                pollTimer = setInterval(() => { loadMessages(); loadPushCount(); loadArmageddonState(); }, 5000);
-                setInterval(checkHealth, 15000);
+                // Fast poll: messages + armageddon combined (10 s instead of 3 × 5 s)
+                pollTimer = setInterval(() => { loadMessages(); loadArmageddonState(); }, 10000);
+                // Slow poll: push count (rarely changes), health check
+                setInterval(loadPushCount, 60000);
+                setInterval(checkHealth, 30000);
             }
 
             async function sendAnnouncement() {
@@ -1540,16 +1543,12 @@
                 document.querySelectorAll('.arm-type-btn').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
                 selectedArmType = btn.dataset.type;
-                // Pre-fill title with default if the field is empty or was auto-filled
+                // Pre-fill title with default if the field is empty or already shows a preset default
                 const titleEl = document.getElementById('arm-title');
                 const defaultTitle = btn.dataset.defaultTitle || '';
-                // Only auto-fill if it matches a previous default or is empty
-                const prevDefault = document.querySelector('.arm-type-btn[data-type]')?.dataset.defaultTitle;
                 const currentVal = titleEl.value.trim();
-                const isAutoFilled = !currentVal || Object.values(document.querySelectorAll('.arm-type-btn')).some
-                    ? [...document.querySelectorAll('.arm-type-btn')].some(b => b.dataset.defaultTitle === currentVal)
-                    : false;
-                if (!currentVal || isAutoFilled) titleEl.value = defaultTitle;
+                const isAutoFilled = !currentVal || [...document.querySelectorAll('.arm-type-btn')].some(b => b.dataset.defaultTitle === currentVal);
+                if (isAutoFilled) titleEl.value = defaultTitle;
             });
             // Set initial title for default selected type
             document.getElementById('arm-title').value = document.querySelector('.arm-type-btn.selected')?.dataset.defaultTitle || '';
@@ -1621,7 +1620,7 @@
                 document.getElementById('arm-confirm-preview-title').textContent = title || '';
                 document.getElementById('arm-confirm-preview-text').textContent = text;
                 document.getElementById('arm-confirm-preview-timer').textContent =
-                    duration > 0 ? `⏱ Auto-deactivates after ${duration < 60 ? duration + ' minute' + (duration !== 1 ? 's' : '') : (duration / 60) + ' hour' + (duration !== 60 ? 's' : '')}` : '⚠ Manual deactivation only';
+                    duration > 0 ? `⏱ Auto-deactivates after ${duration < 60 ? duration + ' minute' + (duration !== 1 ? 's' : '') : (duration / 60) + ' hour' + (duration / 60 !== 1 ? 's' : '')}` : '⚠ Manual deactivation only';
                 document.getElementById('arm-confirm-modal').classList.add('open');
 
                 // Store pending payload for confirm handler

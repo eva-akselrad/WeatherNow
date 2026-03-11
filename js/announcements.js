@@ -1,13 +1,12 @@
 /* ════════════════════════════════════════════════════════════════
-   announcements.js – Polls /api/messages and shows banners/popups
-   Also polls /api/armageddon for system-wide override state
+   announcements.js – Polls /api/poll (combined messages + armageddon)
    ════════════════════════════════════════════════════════════════ */
 
 const Announcements = (() => {
 
     let lastId = 0;
     let pollTimer = null;
-    const POLL_MS = 5000;
+    const POLL_MS = 10000;   // 10 s — was two separate 5 s loops (24 req/min → 6 req/min)
     let armageddonActive = false;
 
     // ── TTS helper ────────────────────────────────────────────────
@@ -84,17 +83,29 @@ const Announcements = (() => {
     }
 
 
-    async function poll() {
+    // ── Combined poll: messages + armageddon in one request ───────
+    async function pollAll() {
         try {
-            const resp = await fetch(`/api/messages?since=${lastId}`, { cache: 'no-store' });
+            const resp = await fetch(`/api/poll?since=${lastId}`, { cache: 'no-store' });
             if (!resp.ok) return;
-            const msgs = await resp.json();
-            msgs.forEach(msg => {
+            const { messages, armageddon } = await resp.json();
+
+            // Handle new messages
+            messages.forEach(msg => {
                 lastId = Math.max(lastId, msg.id);
-                playAlertSound(msg.type);   // chime on receive
+                playAlertSound(msg.type);
                 show(msg);
                 speakMessage(msg);
             });
+
+            // Handle armageddon state changes
+            if (armageddon.active && !armageddonActive) {
+                showArmageddonOverlay(armageddon);
+                armageddonActive = true;
+            } else if (!armageddon.active && armageddonActive) {
+                removeArmageddonOverlay();
+                armageddonActive = false;
+            }
         } catch {
             if (window.location.protocol === 'file:') clearInterval(pollTimer);
         }
@@ -246,27 +257,35 @@ const Announcements = (() => {
         } catch { /* ok */ }
     }
 
-    // ── Armageddon mode (system-wide override) ────────────────────
-    async function pollArmageddon() {
-        try {
-            const resp = await fetch('/api/armageddon', { cache: 'no-store' });
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.active && !armageddonActive) {
-                showArmageddonOverlay(data);
-                armageddonActive = true;
-            } else if (!data.active && armageddonActive) {
-                removeArmageddonOverlay();
-                armageddonActive = false;
-            }
-        } catch { /* ok */ }
-    }
+    // ── Armageddon overlay (type-themed) ──────────────────────────
+    const ARM_THEME = {
+        tornado:      { icon: '🌪️', color: '#ef4444', bg: 'rgba(10,0,0,0.97)',  bg2: 'rgba(40,0,0,0.97)',   glow: 'rgba(239,68,68,0.8)' },
+        hurricane:    { icon: '🌀', color: '#a855f7', bg: 'rgba(5,0,15,0.97)',   bg2: 'rgba(20,0,40,0.97)',  glow: 'rgba(168,85,247,0.8)' },
+        flood:        { icon: '🌊', color: '#3b82f6', bg: 'rgba(0,5,20,0.97)',   bg2: 'rgba(0,15,40,0.97)',  glow: 'rgba(59,130,246,0.8)' },
+        fire:         { icon: '🔥', color: '#f97316', bg: 'rgba(15,3,0,0.97)',   bg2: 'rgba(40,10,0,0.97)',  glow: 'rgba(249,115,22,0.8)' },
+        winter:       { icon: '❄️', color: '#bae6fd', bg: 'rgba(0,5,20,0.97)',   bg2: 'rgba(0,10,30,0.97)',  glow: 'rgba(186,230,253,0.8)' },
+        thunderstorm: { icon: '⛈️', color: '#fbbf24', bg: 'rgba(5,5,0,0.97)',    bg2: 'rgba(15,12,0,0.97)',  glow: 'rgba(251,191,36,0.8)' },
+        nuclear:      { icon: '☢️', color: '#ef4444', bg: 'rgba(10,0,0,0.97)',   bg2: 'rgba(40,0,0,0.97)',   glow: 'rgba(239,68,68,0.8)' },
+        civil:        { icon: '📻', color: '#f97316', bg: 'rgba(10,5,0,0.97)',   bg2: 'rgba(30,10,0,0.97)',  glow: 'rgba(249,115,22,0.8)' },
+        custom:       { icon: '🚨', color: '#ef4444', bg: 'rgba(10,0,0,0.97)',   bg2: 'rgba(40,0,0,0.97)',   glow: 'rgba(239,68,68,0.8)' },
+        emergency:    { icon: '🚨', color: '#ef4444', bg: 'rgba(10,0,0,0.97)',   bg2: 'rgba(40,0,0,0.97)',   glow: 'rgba(239,68,68,0.8)' },
+    };
+
+    let armCountdownRAF = null;
 
     function showArmageddonOverlay(data) {
         removeArmageddonOverlay(); // ensure no duplicate
+        const theme = ARM_THEME[data.type] || ARM_THEME.emergency;
+
         const overlay = document.createElement('div');
         overlay.id = 'armageddon-overlay';
         overlay.className = 'armageddon-overlay';
+        // Apply type-specific palette via CSS custom properties
+        overlay.style.setProperty('--arm-bg',   theme.bg);
+        overlay.style.setProperty('--arm-bg2',  theme.bg2);
+        overlay.style.setProperty('--arm-color', theme.color);
+        overlay.style.setProperty('--arm-glow',  theme.glow);
+        overlay.style.background = theme.bg;
 
         let parsedBody = escHtml(data.text);
         if (typeof marked !== 'undefined') {
@@ -275,16 +294,32 @@ const Announcements = (() => {
 
         overlay.innerHTML = `
             <div class="armageddon-inner">
-                <div class="armageddon-icon">☢️</div>
+                <div class="armageddon-icon">${theme.icon}</div>
                 ${data.title ? `<div class="armageddon-title">${escHtml(data.title)}</div>` : ''}
                 <div class="armageddon-body markdown-body">${parsedBody}</div>
+                ${data.expiresAt ? `<div class="armageddon-countdown" id="arm-overlay-countdown"></div>` : ''}
             </div>
         `;
         document.body.appendChild(overlay);
         requestAnimationFrame(() => overlay.classList.add('armageddon-visible'));
+
+        // Live countdown if there's an expiry
+        if (data.expiresAt) {
+            const countdownEl = document.getElementById('arm-overlay-countdown');
+            const tick = () => {
+                const ms = data.expiresAt - Date.now();
+                if (!countdownEl || !overlay.isConnected) return;
+                if (ms <= 0) { countdownEl.textContent = 'Expiring…'; return; }
+                const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+                countdownEl.textContent = `This alert will automatically clear in ${m}m ${s}s`;
+                armCountdownRAF = setTimeout(tick, 1000);
+            };
+            tick();
+        }
     }
 
     function removeArmageddonOverlay() {
+        if (armCountdownRAF) { clearTimeout(armCountdownRAF); armCountdownRAF = null; }
         const overlay = document.getElementById('armageddon-overlay');
         if (overlay) overlay.remove();
     }
@@ -293,10 +328,8 @@ const Announcements = (() => {
     function init() {
         // Don't poll if opened as a local file — admin API won't be there
         if (window.location.protocol === 'file:') return;
-        poll();
-        pollArmageddon();
-        pollTimer = setInterval(poll, POLL_MS);
-        setInterval(pollArmageddon, POLL_MS);
+        pollAll();
+        pollTimer = setInterval(pollAll, POLL_MS);
     }
 
     return { init };
