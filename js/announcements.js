@@ -150,6 +150,17 @@ const Announcements = (() => {
         banner.dataset.type = msg.type;
         if (icon) icon.textContent = icons[msg.type] || 'ℹ';
 
+        // Apply custom color if provided (overrides the CSS data-type rule)
+        if (msg.color) {
+            banner.style.background = `${msg.color}22`;
+            banner.style.borderColor = `${msg.color}88`;
+            banner.style.color = msg.color;
+        } else {
+            banner.style.background = '';
+            banner.style.borderColor = '';
+            banner.style.color = '';
+        }
+
         // Strip newlines to keep the banner strictly single-line
         const flatText = msg.text.replace(/[\r\n]+/g, ' ').trim();
         let parsedText = escHtml(flatText);
@@ -198,6 +209,17 @@ const Announcements = (() => {
                 ${msg.duration > 0 ? `<div class="announce-popup-timer"><div class="announce-popup-timer-bar"></div></div>` : ''}
             </div>
         `;
+
+        // Apply custom accent color if provided
+        if (msg.color) {
+            const inner = overlay.querySelector('.announce-popup-inner');
+            if (inner) {
+                inner.style.borderColor = `${msg.color}99`;
+                inner.style.boxShadow = `0 30px 100px ${msg.color}44`;
+            }
+            const title = overlay.querySelector('.announce-popup-title');
+            if (title) title.style.color = msg.color;
+        }
 
         const closeBtn = overlay.querySelector('.announce-popup-close');
         const doClose = () => {
@@ -277,14 +299,20 @@ const Announcements = (() => {
         removeArmageddonOverlay(); // ensure no duplicate
         const theme = ARM_THEME[data.type] || ARM_THEME.emergency;
 
+        // If the admin specified a custom color, derive glow from it and keep type bg
+        const accentColor = /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : theme.color;
+        const glowColor = /^#[0-9a-fA-F]{6}$/.test(data.color)
+            ? hexToRgba(data.color, 0.8)
+            : theme.glow;
+
         const overlay = document.createElement('div');
         overlay.id = 'armageddon-overlay';
         overlay.className = 'armageddon-overlay';
         // Apply type-specific palette via CSS custom properties
-        overlay.style.setProperty('--arm-bg',   theme.bg);
-        overlay.style.setProperty('--arm-bg2',  theme.bg2);
-        overlay.style.setProperty('--arm-color', theme.color);
-        overlay.style.setProperty('--arm-glow',  theme.glow);
+        overlay.style.setProperty('--arm-bg',    theme.bg);
+        overlay.style.setProperty('--arm-bg2',   theme.bg2);
+        overlay.style.setProperty('--arm-color',  accentColor);
+        overlay.style.setProperty('--arm-glow',   glowColor);
         overlay.style.background = theme.bg;
 
         let parsedBody = escHtml(data.text);
@@ -316,6 +344,14 @@ const Announcements = (() => {
             };
             tick();
         }
+    }
+
+    // Convert #rrggbb hex to rgba(r, g, b, a) string
+    function hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
     }
 
     function removeArmageddonOverlay() {

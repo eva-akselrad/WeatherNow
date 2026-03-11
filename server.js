@@ -175,8 +175,11 @@ app.get('/api/verify', (req, res) => {
 // Body: { password, text, type, display, duration, title, tts, push }
 app.post('/api/announce', async (req, res) => {
     if (!checkAuth(req, res)) return;
-    const { text, type = 'info', display = 'banner', duration = 0, title = '', tts = false, push = false } = req.body;
+    const { text, type = 'info', display = 'banner', duration = 0, title = '', tts = false, push = false, color = '' } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: 'text required' });
+
+    // Validate hex color if provided (must be a valid CSS hex color)
+    const safeColor = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '';
 
     const msg = {
         id: nextId++,
@@ -187,6 +190,7 @@ app.post('/api/announce', async (req, res) => {
         duration,
         tts: !!tts,
         push: !!push,
+        color: safeColor,
         created: Date.now()
     };
     messages.push(msg);
@@ -233,14 +237,17 @@ app.get('/api/armageddon', (req, res) => {
 });
 
 // ── POST /api/armageddon ───────────────────────────────────────
-// Body: { title, text, type, duration }  duration = minutes (0 = manual)
+// Body: { title, text, type, duration, color }  duration = minutes (0 = manual)
 app.post('/api/armageddon', adminLimiter, (req, res) => {
     if (!checkAuth(req, res)) return;
-    const { title = '', text, type = 'emergency', duration = 0 } = req.body;
+    const { title = '', text, type = 'emergency', duration = 0, color = '' } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: 'text required' });
     const durationMs = Math.max(0, parseInt(duration) || 0) * 60 * 1000;
+    // Validate hex color if provided
+    const safeColor = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '';
     armageddonState = {
         title: title.trim(), text: text.trim(), type,
+        color: safeColor,
         activatedAt: Date.now(),
         expiresAt: durationMs > 0 ? Date.now() + durationMs : null,
     };

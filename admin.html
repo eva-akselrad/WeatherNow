@@ -345,7 +345,61 @@
             font-weight: 400;
         }
 
-        .send-btn {
+        /* ── Color picker ────────────────────────────────────── */
+        .color-picker-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform .15s, border-color .15s;
+            flex-shrink: 0;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.15);
+        }
+
+        .color-swatch.selected {
+            border-color: #fff;
+            transform: scale(1.15);
+        }
+
+        .color-swatch.swatch-default {
+            background: var(--card);
+            border-color: var(--border);
+            font-size: .6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .color-custom-input {
+            width: 36px;
+            height: 28px;
+            border-radius: 6px;
+            border: 2px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            padding: 2px;
+            flex-shrink: 0;
+        }
+
+        .color-custom-input:hover,
+        .color-custom-input:focus {
+            border-color: var(--accent);
+        }
+
+
             width: 100%;
             padding: 14px;
             border: none;
@@ -906,6 +960,23 @@
                 </div>
             </div>
 
+            <div class="field-group">
+                <label>Accent Color <span style="color:var(--muted);font-weight:400">(optional — overrides type default)</span></label>
+                <div class="color-picker-row" id="msg-color-swatches">
+                    <div class="color-swatch swatch-default selected" data-color="" title="Use type default">AUTO</div>
+                    <div class="color-swatch" style="background:#3b82f6" data-color="#3b82f6" title="Blue"></div>
+                    <div class="color-swatch" style="background:#22c55e" data-color="#22c55e" title="Green"></div>
+                    <div class="color-swatch" style="background:#f59e0b" data-color="#f59e0b" title="Amber"></div>
+                    <div class="color-swatch" style="background:#ef4444" data-color="#ef4444" title="Red"></div>
+                    <div class="color-swatch" style="background:#a855f7" data-color="#a855f7" title="Purple"></div>
+                    <div class="color-swatch" style="background:#ec4899" data-color="#ec4899" title="Pink"></div>
+                    <div class="color-swatch" style="background:#06b6d4" data-color="#06b6d4" title="Cyan"></div>
+                    <div class="color-swatch" style="background:#f97316" data-color="#f97316" title="Orange"></div>
+                    <input type="color" id="msg-color-custom" class="color-custom-input" value="#ffffff" title="Custom color" />
+                </div>
+                <input type="hidden" id="msg-color" value="" />
+            </div>
+
             <div class="row">
                 <div class="field-group">
                     <label>Title <span style="color:var(--muted);font-weight:400">(optional)</span></label>
@@ -1039,6 +1110,24 @@
                         <span class="arm-type-icon">🚨</span>Custom
                     </button>
                 </div>
+            </div>
+
+            <!-- Accent Color -->
+            <div class="field-group">
+                <label>Accent Color <span style="color:var(--muted);font-weight:400">(optional — overrides type default)</span></label>
+                <div class="color-picker-row" id="arm-color-swatches">
+                    <div class="color-swatch swatch-default selected" id="arm-swatch-auto" data-color="" title="Use type default">AUTO</div>
+                    <div class="color-swatch" style="background:#ef4444" data-color="#ef4444" title="Red"></div>
+                    <div class="color-swatch" style="background:#f97316" data-color="#f97316" title="Orange"></div>
+                    <div class="color-swatch" style="background:#fbbf24" data-color="#fbbf24" title="Yellow"></div>
+                    <div class="color-swatch" style="background:#22c55e" data-color="#22c55e" title="Green"></div>
+                    <div class="color-swatch" style="background:#3b82f6" data-color="#3b82f6" title="Blue"></div>
+                    <div class="color-swatch" style="background:#a855f7" data-color="#a855f7" title="Purple"></div>
+                    <div class="color-swatch" style="background:#bae6fd" data-color="#bae6fd" title="Ice Blue"></div>
+                    <div class="color-swatch" style="background:#ffffff" data-color="#ffffff" title="White"></div>
+                    <input type="color" id="arm-color-custom" class="color-custom-input" value="#ef4444" title="Custom color" />
+                </div>
+                <input type="hidden" id="arm-color" value="" />
             </div>
 
             <!-- Title -->
@@ -1337,6 +1426,23 @@
                     });
                 });
 
+                // Announcement color swatches
+                const msgColorInput = document.getElementById('msg-color');
+                const msgColorCustom = document.getElementById('msg-color-custom');
+                const msgSwatches = document.getElementById('msg-color-swatches').querySelectorAll('.color-swatch');
+                msgSwatches.forEach(swatch => {
+                    swatch.addEventListener('click', () => {
+                        msgSwatches.forEach(s => s.classList.remove('selected'));
+                        swatch.classList.add('selected');
+                        msgColorInput.value = swatch.dataset.color;
+                        if (swatch.dataset.color) msgColorCustom.value = swatch.dataset.color;
+                    });
+                });
+                msgColorCustom.addEventListener('input', () => {
+                    msgSwatches.forEach(s => s.classList.remove('selected'));
+                    msgColorInput.value = msgColorCustom.value;
+                });
+
                 // Send
                 sendBtn.addEventListener('click', sendAnnouncement);
                 clearAllBtn.addEventListener('click', clearAll);
@@ -1346,6 +1452,23 @@
                 // Armageddon mode
                 document.getElementById('arm-activate-btn').addEventListener('click', activateArmageddon);
                 document.getElementById('arm-deactivate-btn').addEventListener('click', deactivateArmageddon);
+
+                // Armageddon color swatches
+                const armColorInput = document.getElementById('arm-color');
+                const armColorCustom = document.getElementById('arm-color-custom');
+                const armSwatches = document.getElementById('arm-color-swatches').querySelectorAll('.color-swatch');
+                armSwatches.forEach(swatch => {
+                    swatch.addEventListener('click', () => {
+                        armSwatches.forEach(s => s.classList.remove('selected'));
+                        swatch.classList.add('selected');
+                        armColorInput.value = swatch.dataset.color;
+                        if (swatch.dataset.color) armColorCustom.value = swatch.dataset.color;
+                    });
+                });
+                armColorCustom.addEventListener('input', () => {
+                    armSwatches.forEach(s => s.classList.remove('selected'));
+                    armColorInput.value = armColorCustom.value;
+                });
 
                 // Release Notes
                 document.getElementById('rn-post-btn').addEventListener('click', postReleaseNote);
@@ -1393,7 +1516,8 @@
                             display: selectedDisplay,
                             duration: parseInt(document.getElementById('msg-duration').value),
                             tts: document.getElementById('msg-tts').checked,
-                            push: document.getElementById('msg-push').checked
+                            push: document.getElementById('msg-push').checked,
+                            color: document.getElementById('msg-color').value
                         })
                     });
                     if (!r.ok) throw new Error();
@@ -1624,7 +1748,10 @@
                 document.getElementById('arm-confirm-modal').classList.add('open');
 
                 // Store pending payload for confirm handler
-                document.getElementById('arm-confirm-modal').dataset.pending = JSON.stringify({ title, text, type: selectedArmType, duration });
+                document.getElementById('arm-confirm-modal').dataset.pending = JSON.stringify({
+                    title, text, type: selectedArmType, duration,
+                    color: document.getElementById('arm-color').value
+                });
             }
 
             document.getElementById('arm-confirm-cancel').addEventListener('click', () => {
