@@ -45,11 +45,16 @@ async function getReleaseNotes(env) {
 async function saveReleaseNotes(env, notes) {
     await env.WEATHERNOW_KV.put(KV_RELEASE_NOTES_KEY, JSON.stringify(notes));
 }
-async function getCustomForecast(env) {
-    return (await env.WEATHERNOW_KV.get(KV_CUSTOM_FORECAST_KEY, 'json')) ?? { periods: [], targeting: { mode: 'all' }, updatedAt: null };
+async function getCustomForecasts(env) {
+    const stored = await env.WEATHERNOW_KV.get(KV_CUSTOM_FORECAST_KEY, 'json');
+    // Migrate legacy single-object storage to array format
+    if (stored && !Array.isArray(stored)) {
+        return stored.periods?.length ? [{ id: 1, label: '', ...stored }] : [];
+    }
+    return stored ?? [];
 }
-async function saveCustomForecast(env, forecast) {
-    await env.WEATHERNOW_KV.put(KV_CUSTOM_FORECAST_KEY, JSON.stringify(forecast));
+async function saveCustomForecasts(env, forecasts) {
+    await env.WEATHERNOW_KV.put(KV_CUSTOM_FORECAST_KEY, JSON.stringify(forecasts));
 }
 
 function checkAuth(request, env) {
@@ -285,21 +290,42 @@ export async function onRequest({ request, env }) {
 
     // ── Custom Forecast ──────────────────────────────────────────
     if (path === '/api/custom-forecast' && method === 'GET') {
-        return json(await getCustomForecast(env));
+        return json(await getCustomForecasts(env));
     }
 
     if (path === '/api/custom-forecast' && method === 'POST') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
-        const { periods = [], targeting = { mode: 'all' } } = await request.json();
-        const forecast = { periods, targeting, updatedAt: Date.now() };
-        await saveCustomForecast(env, forecast);
-        return json(forecast);
+        const { periods = [], targeting = { mode: 'all' }, label: rawLabel = '' } = await request.json();
+        const label = typeof rawLabel === 'string' ? rawLabel.trim() : '';
+        if (!periods.length) return json({ error: 'periods required' }, 400);
+        const forecasts = await getCustomForecasts(env);
+        // Replace in-place if a non-empty label already exists, otherwise append
+        const existing = label ? forecasts.findIndex(c => c.label === label) : -1;
+        const nextId = forecasts.length ? Math.max(...forecasts.map(c => c.id ?? 0)) + 1 : 1;
+        const entry = { id: existing >= 0 ? forecasts[existing].id : nextId, label, periods, targeting, updatedAt: Date.now() };
+        if (existing >= 0) {
+            forecasts[existing] = entry;
+        } else {
+            forecasts.push(entry);
+        }
+        await saveCustomForecasts(env, forecasts);
+        return json(entry, 201);
+    }
+
+    const customFcMatch = path.match(/^\/api\/custom-forecast\/(\d+)$/);
+    if (customFcMatch && method === 'DELETE') {
+        if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+        const id = parseInt(customFcMatch[1], 10);
+        const forecasts = await getCustomForecasts(env);
+        const updated = forecasts.filter(c => c.id !== id);
+        if (updated.length === forecasts.length) return json({ error: 'not found' }, 404);
+        await saveCustomForecasts(env, updated);
+        return json({ ok: true });
     }
 
     if (path === '/api/custom-forecast' && method === 'DELETE') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
-        const cleared = { periods: [], targeting: { mode: 'all' }, updatedAt: null };
-        await saveCustomForecast(env, cleared);
+        await saveCustomForecasts(env, []);
         return json({ ok: true });
     }
 
