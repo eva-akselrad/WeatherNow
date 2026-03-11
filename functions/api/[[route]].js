@@ -344,7 +344,11 @@ export async function onRequest({ request, env }) {
     // ── Armageddon ───────────────────────────────────────────────
     // GET is public; POST/DELETE require auth.
     if (path === '/api/armageddon' && method === 'GET') {
-        const state = await getArmageddonState(env);
+        let state = await getArmageddonState(env);
+        if (state?.expiresAt && Date.now() > state.expiresAt) {
+            await saveArmageddonState(env, null);
+            state = null;
+        }
         return json(state ? { active: true, ...state } : { active: false });
     }
 
@@ -352,9 +356,14 @@ export async function onRequest({ request, env }) {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
         let body;
         try { body = await request.json(); } catch { return json({ error: 'invalid JSON body' }, 400); }
-        const { title = '', text, type = 'emergency' } = body;
+        const { title = '', text, type = 'emergency', duration = 0 } = body;
         if (!text?.trim()) return json({ error: 'text is required' }, 400);
-        const state = { title: title.trim(), text: text.trim(), type };
+        const durationMs = Math.max(0, parseInt(duration) || 0) * 60 * 1000;
+        const state = {
+            title: title.trim(), text: text.trim(), type,
+            activatedAt: Date.now(),
+            expiresAt: durationMs > 0 ? Date.now() + durationMs : null,
+        };
         await saveArmageddonState(env, state);
         return json({ ok: true, ...state });
     }

@@ -211,16 +211,25 @@ app.delete('/api/messages', (req, res) => {
 // ── GET /api/armageddon ────────────────────────────────────────
 // Public – display clients poll this to check override state
 app.get('/api/armageddon', (req, res) => {
+    if (armageddonState?.expiresAt && Date.now() > armageddonState.expiresAt) {
+        armageddonState = null;
+        console.log('[Admin] Armageddon mode auto-expired');
+    }
     res.json(armageddonState ? { active: true, ...armageddonState } : { active: false });
 });
 
 // ── POST /api/armageddon ───────────────────────────────────────
-// Body: { title, text, type }
+// Body: { title, text, type, duration }  duration = minutes (0 = manual)
 app.post('/api/armageddon', adminLimiter, (req, res) => {
     if (!checkAuth(req, res)) return;
-    const { title = '', text, type = 'emergency' } = req.body;
+    const { title = '', text, type = 'emergency', duration = 0 } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: 'text required' });
-    armageddonState = { title: title.trim(), text: text.trim(), type };
+    const durationMs = Math.max(0, parseInt(duration) || 0) * 60 * 1000;
+    armageddonState = {
+        title: title.trim(), text: text.trim(), type,
+        activatedAt: Date.now(),
+        expiresAt: durationMs > 0 ? Date.now() + durationMs : null,
+    };
     console.log('[Admin] Armageddon mode ACTIVATED');
     res.json({ ok: true, ...armageddonState });
 });

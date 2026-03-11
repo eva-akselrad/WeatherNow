@@ -730,6 +730,125 @@
             letter-spacing: .06em;
             margin-left: 6px;
         }
+
+        /* ── Armageddon type presets ────────────────────────────── */
+        .arm-type-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .arm-type-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 6px;
+            border-radius: 8px;
+            border: 1px solid rgba(239,68,68,0.3);
+            background: rgba(239,68,68,0.06);
+            color: #fca5a5;
+            cursor: pointer;
+            font-size: .72rem;
+            font-weight: 600;
+            transition: all .18s;
+            text-align: center;
+        }
+        .arm-type-btn:hover {
+            background: rgba(239,68,68,0.18);
+            border-color: rgba(239,68,68,0.6);
+        }
+        .arm-type-btn.selected {
+            background: rgba(239,68,68,0.25);
+            border-color: #ef4444;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(239,68,68,0.3);
+        }
+        .arm-type-btn .arm-type-icon { font-size: 1.4rem; }
+
+        /* ── Armageddon confirmation modal ──────────────────────── */
+        #arm-confirm-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(0,0,0,0.85);
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        #arm-confirm-modal.open {
+            display: flex;
+        }
+        .arm-confirm-box {
+            background: #13001a;
+            border: 1px solid rgba(239,68,68,0.6);
+            border-radius: 16px;
+            padding: 32px 28px;
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(239,68,68,0.25);
+            animation: arm-confirm-in .25s ease;
+        }
+        @keyframes arm-confirm-in {
+            from { transform: scale(.92); opacity: 0; }
+            to   { transform: scale(1);  opacity: 1; }
+        }
+        .arm-confirm-icon { font-size: 3rem; margin-bottom: 12px; }
+        .arm-confirm-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: #ef4444;
+            letter-spacing: .08em;
+            margin-bottom: 14px;
+        }
+        .arm-confirm-body {
+            font-size: .85rem;
+            color: #fca5a5;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .arm-confirm-preview {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-top: 12px;
+            text-align: left;
+        }
+        .arm-confirm-preview-type { font-size: .7rem; font-weight: 700; letter-spacing: .06em; color: #f87171; margin-bottom: 4px; }
+        .arm-confirm-preview-title { font-size: .9rem; font-weight: 700; color: #fff; }
+        .arm-confirm-preview-text  { font-size: .8rem; color: #fca5a5; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+        .arm-confirm-preview-timer { font-size: .72rem; color: #f59e0b; margin-top: 6px; }
+        .arm-confirm-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        #arm-confirm-cancel {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 10px 24px;
+            cursor: pointer;
+            font-size: .9rem;
+            font-weight: 600;
+            transition: all .2s;
+        }
+        #arm-confirm-cancel:hover { border-color: var(--text); color: var(--text); }
+        #arm-confirm-ok {
+            background: linear-gradient(135deg,#dc2626,#991b1b);
+            border: none;
+            color: #fff;
+            border-radius: 8px;
+            padding: 10px 24px;
+            cursor: pointer;
+            font-size: .9rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            transition: all .2s;
+        }
+        #arm-confirm-ok:hover { background: linear-gradient(135deg,#ef4444,#b91c1c); box-shadow: 0 0 20px rgba(239,68,68,0.4); }
     </style>
 </head>
 
@@ -877,19 +996,88 @@
                 Overrides the entire display with a full-screen message that <strong style="color:#f87171">cannot be dismissed by viewers</strong>.
                 Only the admin can deactivate it. Use for critical emergencies only.
             </p>
+
+            <!-- Active status bar -->
             <div id="armageddon-status-bar" style="display:none;align-items:center;gap:10px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.5);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.85rem;color:#fca5a5">
-                <span style="font-size:1.3em">🔴</span>
-                <strong>ACTIVE:</strong>
-                <span id="armageddon-active-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+                <span id="armageddon-status-icon" style="font-size:1.3em">🔴</span>
+                <div style="flex:1;min-width:0">
+                    <strong>ACTIVE:</strong>
+                    <span id="armageddon-active-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+                    <div id="armageddon-countdown" style="font-size:.72rem;color:#f59e0b;margin-top:2px"></div>
+                </div>
             </div>
+
+            <!-- Emergency type presets -->
             <div class="field-group">
-                <label>Title <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-                <input type="text" id="arm-title" placeholder="e.g. SYSTEM OVERRIDE" maxlength="80" />
+                <label>Emergency Type</label>
+                <div class="arm-type-grid" id="arm-type-grid">
+                    <button class="arm-type-btn selected" data-type="tornado"      data-icon="🌪️" data-default-title="TORNADO WARNING"       data-color="#ef4444" data-bg="#0a0000" data-glow="rgba(239,68,68,0.8)">
+                        <span class="arm-type-icon">🌪️</span>Tornado
+                    </button>
+                    <button class="arm-type-btn" data-type="hurricane"   data-icon="🌀" data-default-title="HURRICANE WARNING"     data-color="#a855f7" data-bg="#05000f" data-glow="rgba(168,85,247,0.8)">
+                        <span class="arm-type-icon">🌀</span>Hurricane
+                    </button>
+                    <button class="arm-type-btn" data-type="flood"       data-icon="🌊" data-default-title="FLASH FLOOD WARNING"   data-color="#3b82f6" data-bg="#000514" data-glow="rgba(59,130,246,0.8)">
+                        <span class="arm-type-icon">🌊</span>Flash Flood
+                    </button>
+                    <button class="arm-type-btn" data-type="fire"        data-icon="🔥" data-default-title="WILDFIRE EMERGENCY"    data-color="#f97316" data-bg="#0f0300" data-glow="rgba(249,115,22,0.8)">
+                        <span class="arm-type-icon">🔥</span>Wildfire
+                    </button>
+                    <button class="arm-type-btn" data-type="winter"      data-icon="❄️" data-default-title="WINTER STORM WARNING"  data-color="#bae6fd" data-bg="#00050f" data-glow="rgba(186,230,253,0.8)">
+                        <span class="arm-type-icon">❄️</span>Winter Storm
+                    </button>
+                    <button class="arm-type-btn" data-type="thunderstorm" data-icon="⛈️" data-default-title="SEVERE THUNDERSTORM"  data-color="#fbbf24" data-bg="#050500" data-glow="rgba(251,191,36,0.8)">
+                        <span class="arm-type-icon">⛈️</span>Thunderstorm
+                    </button>
+                    <button class="arm-type-btn" data-type="nuclear"     data-icon="☢️" data-default-title="NUCLEAR ALERT"         data-color="#ef4444" data-bg="#0a0000" data-glow="rgba(239,68,68,0.8)">
+                        <span class="arm-type-icon">☢️</span>Nuclear
+                    </button>
+                    <button class="arm-type-btn" data-type="civil"       data-icon="📻" data-default-title="CIVIL EMERGENCY"       data-color="#f97316" data-bg="#0a0500" data-glow="rgba(249,115,22,0.8)">
+                        <span class="arm-type-icon">📻</span>Civil Emergency
+                    </button>
+                    <button class="arm-type-btn" data-type="custom"      data-icon="🚨" data-default-title=""                      data-color="#ef4444" data-bg="#0a0000" data-glow="rgba(239,68,68,0.8)">
+                        <span class="arm-type-icon">🚨</span>Custom
+                    </button>
+                </div>
             </div>
+
+            <!-- Title -->
+            <div class="field-group">
+                <label>Title <span style="color:var(--muted);font-weight:400">(optional — pre-filled by type)</span></label>
+                <input type="text" id="arm-title" placeholder="e.g. TORNADO WARNING" maxlength="80" />
+            </div>
+
+            <!-- Message -->
             <div class="field-group">
                 <label>Message</label>
                 <textarea id="arm-text" rows="3" placeholder="Enter the override message to display on all screens…"></textarea>
             </div>
+
+            <!-- Options row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+                <div class="field-group" style="margin-bottom:0">
+                    <label>Auto-deactivate</label>
+                    <select id="arm-duration" style="width:100%;padding:9px 12px;background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.85rem">
+                        <option value="0">Manual only</option>
+                        <option value="5">5 minutes</option>
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="120">2 hours</option>
+                    </select>
+                </div>
+                <div class="field-group" style="margin-bottom:0;justify-content:flex-end">
+                    <label style="visibility:hidden;height:18px">.</label>
+                    <div style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px">
+                        <input type="checkbox" id="arm-push" style="width:16px;height:16px;accent-color:#ef4444;flex-shrink:0;cursor:pointer" />
+                        <label for="arm-push" style="cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text);line-height:1.3">
+                            📲 Push notify subscribers
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buttons -->
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
                 <button class="send-btn" id="arm-activate-btn"
                     style="flex:1;background:linear-gradient(135deg,#dc2626,#991b1b)">
@@ -900,6 +1088,28 @@
                 </button>
             </div>
             <div id="arm-feedback" style="text-align:center;font-size:.82rem;margin-top:10px;min-height:18px"></div>
+        </div>
+
+        <!-- Armageddon confirmation modal -->
+        <div id="arm-confirm-modal">
+            <div class="arm-confirm-box">
+                <div class="arm-confirm-icon" id="arm-confirm-icon">☢️</div>
+                <div class="arm-confirm-title">ACTIVATE ARMAGEDDON?</div>
+                <div class="arm-confirm-body">
+                    This will immediately override <strong style="color:#fff">all connected displays</strong>
+                    with a full-screen emergency message. Viewers <strong style="color:#f87171">cannot dismiss it</strong>.
+                    <div class="arm-confirm-preview" id="arm-confirm-preview">
+                        <div class="arm-confirm-preview-type" id="arm-confirm-preview-type"></div>
+                        <div class="arm-confirm-preview-title" id="arm-confirm-preview-title"></div>
+                        <div class="arm-confirm-preview-text" id="arm-confirm-preview-text"></div>
+                        <div class="arm-confirm-preview-timer" id="arm-confirm-preview-timer"></div>
+                    </div>
+                </div>
+                <div class="arm-confirm-btns">
+                    <button id="arm-confirm-cancel">Cancel</button>
+                    <button id="arm-confirm-ok">☢️ ACTIVATE NOW</button>
+                </div>
+            </div>
         </div>
 
         <!-- Release Notes -->
@@ -1306,6 +1516,44 @@
             }
 
             // ── Armageddon Mode ─────────────────────────────────────────
+
+            // Emergency type metadata (icons, colours, default titles)
+            const ARM_TYPES = {
+                tornado:      { icon: '🌪️', label: 'Tornado Warning' },
+                hurricane:    { icon: '🌀', label: 'Hurricane Warning' },
+                flood:        { icon: '🌊', label: 'Flash Flood Warning' },
+                fire:         { icon: '🔥', label: 'Wildfire Emergency' },
+                winter:       { icon: '❄️', label: 'Winter Storm Warning' },
+                thunderstorm: { icon: '⛈️', label: 'Severe Thunderstorm' },
+                nuclear:      { icon: '☢️', label: 'Nuclear Alert' },
+                civil:        { icon: '📻', label: 'Civil Emergency' },
+                custom:       { icon: '🚨', label: 'Custom Emergency' },
+                emergency:    { icon: '🚨', label: 'Emergency' },
+            };
+
+            let selectedArmType = 'tornado';
+
+            // Type preset button selection
+            document.getElementById('arm-type-grid').addEventListener('click', e => {
+                const btn = e.target.closest('.arm-type-btn');
+                if (!btn) return;
+                document.querySelectorAll('.arm-type-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedArmType = btn.dataset.type;
+                // Pre-fill title with default if the field is empty or was auto-filled
+                const titleEl = document.getElementById('arm-title');
+                const defaultTitle = btn.dataset.defaultTitle || '';
+                // Only auto-fill if it matches a previous default or is empty
+                const prevDefault = document.querySelector('.arm-type-btn[data-type]')?.dataset.defaultTitle;
+                const currentVal = titleEl.value.trim();
+                const isAutoFilled = !currentVal || Object.values(document.querySelectorAll('.arm-type-btn')).some
+                    ? [...document.querySelectorAll('.arm-type-btn')].some(b => b.dataset.defaultTitle === currentVal)
+                    : false;
+                if (!currentVal || isAutoFilled) titleEl.value = defaultTitle;
+            });
+            // Set initial title for default selected type
+            document.getElementById('arm-title').value = document.querySelector('.arm-type-btn.selected')?.dataset.defaultTitle || '';
+
             async function loadArmageddonState() {
                 try {
                     const r = await fetch(`${API}/armageddon`);
@@ -1314,45 +1562,102 @@
                 } catch { /* ignore */ }
             }
 
+            let armCountdownTimer = null;
+
             function renderArmageddonState(data) {
                 const statusBar = document.getElementById('armageddon-status-bar');
                 const activeText = document.getElementById('armageddon-active-text');
+                const statusIcon = document.getElementById('armageddon-status-icon');
+                const countdown = document.getElementById('armageddon-countdown');
                 const activateBtn = document.getElementById('arm-activate-btn');
                 const deactivateBtn = document.getElementById('arm-deactivate-btn');
                 const card = document.getElementById('armageddon-card');
 
+                if (armCountdownTimer) { clearInterval(armCountdownTimer); armCountdownTimer = null; }
+
                 if (data.active) {
+                    const meta = ARM_TYPES[data.type] || ARM_TYPES.emergency;
+                    statusIcon.textContent = meta.icon;
                     statusBar.style.display = 'flex';
                     activeText.textContent = (data.title ? `${data.title}: ` : '') + data.text;
                     activateBtn.style.display = 'none';
                     deactivateBtn.style.display = '';
                     card.style.background = 'rgba(239,68,68,0.12)';
                     card.style.borderColor = 'rgba(239,68,68,0.7)';
+
+                    if (data.expiresAt) {
+                        const updateCountdown = () => {
+                            const ms = data.expiresAt - Date.now();
+                            if (ms <= 0) { countdown.textContent = 'Expiring…'; loadArmageddonState(); return; }
+                            const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+                            countdown.textContent = `⏱ Auto-deactivates in ${m}m ${s}s`;
+                        };
+                        updateCountdown();
+                        armCountdownTimer = setInterval(updateCountdown, 1000);
+                    } else {
+                        countdown.textContent = '';
+                    }
                 } else {
                     statusBar.style.display = 'none';
                     activateBtn.style.display = '';
                     deactivateBtn.style.display = 'none';
                     card.style.background = 'rgba(239,68,68,0.05)';
                     card.style.borderColor = 'rgba(239,68,68,0.4)';
+                    countdown.textContent = '';
                 }
             }
 
-            async function activateArmageddon() {
+            function activateArmageddon() {
                 const text = document.getElementById('arm-text').value.trim();
                 if (!text) { armFeedback('⚠ Please enter a message.', '#f59e0b'); return; }
+                const title = document.getElementById('arm-title').value.trim();
+                const duration = parseInt(document.getElementById('arm-duration').value) || 0;
+                const meta = ARM_TYPES[selectedArmType] || ARM_TYPES.emergency;
+                const typeBtn = document.querySelector(`.arm-type-btn[data-type="${selectedArmType}"]`);
+
+                // Populate confirmation modal
+                document.getElementById('arm-confirm-icon').textContent = meta.icon;
+                document.getElementById('arm-confirm-preview-type').textContent = meta.label.toUpperCase();
+                document.getElementById('arm-confirm-preview-title').textContent = title || '';
+                document.getElementById('arm-confirm-preview-text').textContent = text;
+                document.getElementById('arm-confirm-preview-timer').textContent =
+                    duration > 0 ? `⏱ Auto-deactivates after ${duration < 60 ? duration + ' minute' + (duration !== 1 ? 's' : '') : (duration / 60) + ' hour' + (duration !== 60 ? 's' : '')}` : '⚠ Manual deactivation only';
+                document.getElementById('arm-confirm-modal').classList.add('open');
+
+                // Store pending payload for confirm handler
+                document.getElementById('arm-confirm-modal').dataset.pending = JSON.stringify({ title, text, type: selectedArmType, duration });
+            }
+
+            document.getElementById('arm-confirm-cancel').addEventListener('click', () => {
+                document.getElementById('arm-confirm-modal').classList.remove('open');
+            });
+
+            document.getElementById('arm-confirm-ok').addEventListener('click', async () => {
+                const modal = document.getElementById('arm-confirm-modal');
+                modal.classList.remove('open');
+                const payload = JSON.parse(modal.dataset.pending || '{}');
                 const btn = document.getElementById('arm-activate-btn');
                 btn.disabled = true;
                 try {
                     const r = await fetch(`${API}/armageddon`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-                        body: JSON.stringify({
-                            title: document.getElementById('arm-title').value.trim(),
-                            text,
-                            type: 'emergency'
-                        })
+                        body: JSON.stringify(payload)
                     });
                     if (!r.ok) throw new Error();
+                    // Optionally push-notify subscribers
+                    if (document.getElementById('arm-push').checked) {
+                        const meta = ARM_TYPES[payload.type] || ARM_TYPES.emergency;
+                        await fetch(`${API}/push/send`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+                            body: JSON.stringify({
+                                title: `${meta.icon} ${payload.title || meta.label}`,
+                                body: payload.text,
+                                type: 'emergency'
+                            })
+                        }).catch(() => { /* push failure is non-critical */ });
+                    }
                     armFeedback('☢️ Armageddon mode ACTIVE!', '#ef4444');
                     loadArmageddonState();
                 } catch {
@@ -1360,7 +1665,7 @@
                 } finally {
                     btn.disabled = false;
                 }
-            }
+            });
 
             async function deactivateArmageddon() {
                 if (!confirm('Deactivate Armageddon mode? The display will return to normal.')) return;
