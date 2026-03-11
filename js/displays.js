@@ -47,38 +47,71 @@ const Displays = (() => {
         const c = data.conditions;
         const a = data.almanac;
 
-        const items = [
-            { icon: '🌡', label: 'Temperature', value: c.temp },
-            { icon: '🤔', label: 'Feels Like', value: c.feelsLike },
-            { icon: '💧', label: 'Humidity', value: c.humidity },
-            { icon: '🌫', label: 'Dewpoint', value: c.dewpoint },
-            { icon: '💨', label: 'Wind', value: c.wind },
-            { icon: '💨', label: 'Wind Direction', value: `${c.windDeg ?? '--'}° (${windDirArrow(c.windDeg)})` },
-            { icon: '🌬', label: 'Gusts', value: c.gusts },
-            { icon: '👀', label: 'Visibility', value: c.visibility },
-            { icon: '📊', label: 'Pressure', value: c.pressure },
-            { icon: '📈', label: 'Trend', value: c.pressureTrend || '--' },
-            { icon: '☁️', label: 'Cloud Cover', value: c.cloudCover },
-            { icon: '☀️', label: 'UV Index', value: c.uv },
-            { icon: '🌧', label: 'Precip (1h)', value: c.precipitation24h },
-            { icon: '❄️', label: 'Snow Depth', value: c.snowDepth },
-            { icon: '🔥', label: 'Heat Index', value: c.heatIndex !== '--' ? c.heatIndex : 'N/A' },
-            { icon: '🥶', label: 'Wind Chill', value: c.windChill !== '--' ? c.windChill : 'N/A' },
-            { icon: '🌅', label: 'Sunrise', value: a?.sunrise || '--' },
-            { icon: '🌇', label: 'Sunset', value: a?.sunset || '--' },
-            { icon: '🌕', label: 'Moon Phase', value: a?.moon || '--' },
-            { icon: '🕛', label: 'Solar Noon', value: a?.solarNoon || '--' },
-            { icon: '🌄', label: 'Civil Dawn', value: a?.dawnCivil || '--' },
-            { icon: '🌆', label: 'Civil Dusk', value: a?.duskCivil || '--' },
-            { icon: '📅', label: 'Day Length', value: a?.dayLength || '--' },
-            { icon: '🔢', label: 'Day of Year', value: a?.dayOfYear || '--' },
+        const sections = [
+            {
+                label: '🌤 Current Conditions',
+                cls: 'obs-section-conditions',
+                items: [
+                    { icon: '🌡', label: 'Temperature', value: c.temp },
+                    { icon: '🤔', label: 'Feels Like', value: c.feelsLike },
+                    { icon: '💧', label: 'Humidity', value: c.humidity },
+                    { icon: '🌫', label: 'Dewpoint', value: c.dewpoint },
+                    { icon: '☁️', label: 'Cloud Cover', value: c.cloudCover },
+                    { icon: '☀️', label: 'UV Index', value: c.uv },
+                ]
+            },
+            {
+                label: '💨 Wind & Atmosphere',
+                cls: 'obs-section-wind',
+                items: [
+                    { icon: '💨', label: 'Wind', value: c.wind },
+                    { icon: '🧭', label: 'Direction', value: `${c.windDeg ?? '--'}° (${windDirArrow(c.windDeg)})` },
+                    { icon: '🌬', label: 'Gusts', value: c.gusts },
+                    { icon: '👀', label: 'Visibility', value: c.visibility },
+                    { icon: '📊', label: 'Pressure', value: c.pressure },
+                    { icon: '📈', label: 'Trend', value: c.pressureTrend || '--' },
+                ]
+            },
+            {
+                label: '🌧 Precipitation & Extremes',
+                cls: 'obs-section-precip',
+                items: [
+                    { icon: '🌧', label: 'Precip (1h)', value: c.precipitation24h },
+                    { icon: '❄️', label: 'Snow Depth', value: c.snowDepth },
+                    { icon: '🔥', label: 'Heat Index', value: c.heatIndex !== '--' ? c.heatIndex : 'N/A' },
+                    { icon: '🥶', label: 'Wind Chill', value: c.windChill !== '--' ? c.windChill : 'N/A' },
+                ]
+            },
+            {
+                label: '🌅 Sun & Almanac',
+                cls: 'obs-section-almanac',
+                items: [
+                    { icon: '🌅', label: 'Sunrise', value: a?.sunrise || '--' },
+                    { icon: '🌇', label: 'Sunset', value: a?.sunset || '--' },
+                    { icon: '🕛', label: 'Solar Noon', value: a?.solarNoon || '--' },
+                    { icon: '📅', label: 'Day Length', value: a?.dayLength || '--' },
+                    { icon: '🌄', label: 'Civil Dawn', value: a?.dawnCivil || '--' },
+                    { icon: '🌆', label: 'Civil Dusk', value: a?.duskCivil || '--' },
+                    { icon: '🌕', label: 'Moon Phase', value: a?.moon || '--' },
+                    { icon: '🔢', label: 'Day of Year', value: a?.dayOfYear || '--' },
+                ]
+            },
         ];
 
-        container.innerHTML = items.map(item => `
-          <div class="obs-card">
-            <span class="obs-icon">${item.icon}</span>
-            <span class="obs-label">${item.label}</span>
-            <span class="obs-value">${item.value}</span>
+        container.innerHTML = sections.map(sec => `
+          <div class="obs-section ${sec.cls}">
+            <div class="obs-section-header">${sec.label}</div>
+            <div class="obs-section-grid">
+              ${sec.items.map(item => `
+                <div class="obs-card">
+                  <span class="obs-icon">${item.icon}</span>
+                  <div class="obs-card-body">
+                    <span class="obs-label">${item.label}</span>
+                    <span class="obs-value">${item.value}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
           </div>
         `).join('');
     }
