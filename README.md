@@ -1,20 +1,24 @@
 # S.H.E.L.L.Y 🌤
 
-A modern, real-time weather client inspired by WeatherStar 4000. Vanilla HTML/CSS/JS, NOAA weather data, IEM NEXRAD radar, animated background music, TTS severe weather alerts, and admin announcements.
+A modern, real-time weather client inspired by WeatherStar 4000. Vanilla HTML/CSS/JS, NOAA weather data, RainViewer animated radar, background music with TTS ducking, severe weather alerts, and a full admin control panel.
 
 ---
 
 ## ✨ Features
 
-- Live NOAA/NWS weather — no API key required
-- IEM NEXRAD animated radar (6 frames, auto-refresh)
-- Slides: Conditions, Obs, Hourly, Extended, Precip Chart, Almanac, Air Quality, Radar, Severe Alerts
-- Background music (server playlist auto-loaded + folder picker fallback)
-- Text-to-speech severe weather alerts with music ducking
+- Live NOAA/NWS weather + Open-Meteo data — no API key required
+- **15 weather slides:** Current Conditions, Detailed Observations, Hourly, Extended, Precipitation Chart, Almanac, Air Quality, Pollen, Travel Forecast, Regional Observations, Regional Forecast, SPC Outlook, Radar, Severe Alerts, Custom Forecast
+- RainViewer animated radar (6 frames, auto-refresh)
+- Background music — server playlist auto-loaded, local folder picker fallback
+- Text-to-speech severe weather alerts with audio ducking
 - **Admin panel** — push info/warning/emergency banners or full-screen popups to every display
+- **Release Notes** — post versioned changelogs visible in the admin panel
+- **Custom Forecast** — publish a hand-crafted forecast slide targeted by map area, ZIP code, or county
+- **SPC Outlook** — Days 1–3 categorical severe weather risk polygons from NOAA
 - **Push notifications** — subscribe on any device, receive alerts even in the background
 - **PWA** — installable on iOS, Android, and desktop; works offline with last-loaded data cached
-- Multiple themes, kiosk/fullscreen mode
+- **Automatic cache busting** — app always loads the latest code after a deploy, no manual cache clearing needed
+- Multiple themes, kiosk/fullscreen mode, keyboard navigation, permalink sharing
 
 ---
 
@@ -28,25 +32,27 @@ Every response is sent with a hardened set of headers:
 
 | Header | Value / Purpose |
 |--------|----------------|
-| `Content-Security-Policy` | Restricts script sources to `self` and a trusted CDN; blocks inline scripts loaded from external origins; restricts image and API connection sources |
+| `Content-Security-Policy` | Allow-lists all script, style, font, image, and API connection sources; blocks resources from unlisted origins |
 | `X-Frame-Options` | `SAMEORIGIN` — prevents clickjacking by blocking the page from being embedded in a foreign `<iframe>` |
 | `X-Content-Type-Options` | `nosniff` — stops browsers from MIME-sniffing a response away from its declared Content-Type |
 | `X-XSS-Protection` | `1; mode=block` — legacy IE/Edge XSS auditor safety net |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` — limits referer leakage to cross-origin requests |
-| `Permissions-Policy` | Disables camera, microphone, geolocation, and payment APIs |
+| `Permissions-Policy` | Disables camera, microphone, and payment APIs; restricts geolocation to this origin to support location-based weather features |
 | `Strict-Transport-Security` | 1-year HSTS; effective when served over TLS/HTTPS |
 
 ### Rate Limiting
 
-All `/api/*` routes are protected by a per-IP sliding-window rate limiter (60 requests per minute).  
-Responses include standard `X-RateLimit-*` headers so clients can see their usage.  
+Admin API routes are protected by a per-IP rate limiter (60 requests per minute) via `express-rate-limit`.  
+Responses include standard `RateLimit-*` headers so clients can see their remaining quota.  
 Exceeding the limit returns **HTTP 429** with a descriptive JSON error.
 
 ### Brute-Force / Account-Lockout Protection
 
 Admin authentication routes track failed password attempts per source IP.  
 After **5 consecutive failures** the IP is **locked out for 15 minutes** and every subsequent request returns HTTP 429 with a `Retry-After` header.  
-A successful login resets the counter.
+A successful login resets the counter. Idle entries are periodically evicted to prevent unbounded memory growth.
+
+> **Behind a proxy / Cloudflare Tunnel:** Set the `TRUST_PROXY=1` environment variable so `express` resolves the real client IP instead of the container/proxy address.
 
 ### Security Event Logging
 
@@ -54,7 +60,7 @@ All notable security events are captured in an in-memory ring buffer (last 500 e
 
 | Event type | Meaning |
 |------------|---------|
-| `auth_success` | Admin password accepted |
+| `auth_success` | Admin password accepted (login only) |
 | `auth_failure` | Wrong password provided |
 | `lockout` | IP locked out after repeated failures |
 | `rate_limited` | Request rejected by the rate limiter |
@@ -122,9 +128,103 @@ docker compose down
 
 ---
 
+## 📺 Weather Slides
+
+All 15 slides can be individually toggled on/off in the **Settings panel**. They cycle automatically at a configurable speed (6–20 seconds) or can be navigated manually.
+
+| Slide | Description |
+|-------|-------------|
+| **Current Conditions** | Temperature, feels-like, humidity, dewpoint, wind & gusts, visibility, pressure trend, UV index, cloud cover, precipitation, heat index / wind chill |
+| **Detailed Observations** | 24-field ASOS-style grid including solar noon, civil twilight, day length, moon phase, day of year |
+| **Hourly** | Next 24 hours — time, icon, temperature, description, precip chance, wind |
+| **Extended** | 7-day forecast — name, icon, description, hi/lo, precip, snow, wind |
+| **Precipitation Chart** | Dual-bar visualization of hourly precip probability + amount, CAPE-based thunder indicators |
+| **Almanac** | Sunrise/sunset, solar noon, civil dawn/dusk, day length, moon phase |
+| **Air Quality** | AQI (0–500+) with color slider + breakdown: PM2.5, PM10, O3, NO2, CO, SO2, dust |
+| **Pollen** | Individual pollen counts (grass, birch, alder, ragweed, mugwort, olive) with level labels and color coding |
+| **Travel Forecast** | WeatherStar-style vertical list of 8 major US cities — icon, lo/hi temperatures |
+| **Regional Observations** | Current conditions for the 8 nearest cities to the viewer's location |
+| **Regional Forecast** | Tomorrow's forecast for the same 8 nearest cities |
+| **SPC Outlook** | NOAA Storm Prediction Center Days 1–3 categorical severe weather risk (Thunderstorm → High) with colored risk bars |
+| **Radar** | RainViewer animated radar — 6 frames, 700 ms/frame, play/pause/jump-to-live controls |
+| **Severe Alerts** | Active NWS alerts — event type, severity, area, description, expiration, manual TTS button |
+| **Custom Forecast** | Admin-posted forecast periods with markdown descriptions and optional location targeting |
+
+---
+
+## 📍 Location
+
+The display uses a two-stage location bootstrap for the fastest possible start:
+
+1. **IP geolocation** (ipapi.co) fires immediately on load for an instant location estimate.
+2. **GPS / manual** search refines the location in the background.
+
+Location is saved in `localStorage` and restored on your next visit. To change location:
+- Type a city name or address in the search bar and press **Enter** or click **Go**.
+- Click the **📍** button to use your device's GPS.
+
+---
+
+## ⚙️ Settings Panel
+
+Open the settings panel with the **⚙** button in the header.
+
+| Setting | Options |
+|---------|---------|
+| **Theme** | Light · Dark · Custom |
+| **Units** | °F / °C |
+| **Slide Speed** | 6–20 seconds slider |
+| **Active Displays** | Toggle each of the 15 slides on/off |
+| **Volume** | 0–100% |
+| **Text-to-Speech** | Enable/disable TTS for severe alerts |
+| **Audio Ducking** | Reduce music volume during TTS announcements |
+| **Shuffle** | Shuffle music playlist |
+| **Autoplay** | Auto-start music on load |
+| **Push Notifications** | One-tap subscribe/unsubscribe |
+| **Kiosk Mode** | Enter fullscreen kiosk mode |
+| **Share Permalink** | Copy a URL that encodes your current settings, location, and kiosk preference |
+
+Settings are saved to `localStorage` and persist across sessions.
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `→` Arrow Right | Next slide |
+| `←` Arrow Left | Previous slide |
+| `P` | Pause / resume slide cycling |
+| `R` | Refresh weather data |
+
+Shortcuts are disabled when focus is in a text input.
+
+---
+
+## 🔗 Permalink Sharing
+
+Click **Share Permalink** in the Settings panel to copy a URL that encodes:
+- Your current settings (theme, units, speed, active slides, etc.)
+- Your saved location
+- Whether to auto-enter kiosk mode on open
+
+Share this link to send the exact same view to another device or person. Settings are applied on load and the `?s=` parameter is cleaned from the URL automatically.
+
+---
+
+## 🖥 Kiosk Mode
+
+Enable **Kiosk Mode** from the Settings panel (or pass a permalink with `k: true`) to enter fullscreen mode. Press **Esc** to exit.
+
+---
+
 ## 📣 Admin Panel
 
 Navigate to `/admin.html` on any device on the same network.
+
+### Announcements
+
+Send real-time messages to every connected display.
 
 | Feature | Details |
 |---------|---------|
@@ -132,7 +232,114 @@ Navigate to `/admin.html` on any device on the same network.
 | **Popup** | Full-screen blurred overlay with animated entrance |
 | **Types** | Info · Warning · Emergency (emergency pulses like NWS alerts) |
 | **Duration** | Manual dismiss or auto-dismiss after 15 s – 10 min |
+| **TTS** | Speak the message aloud on the display via text-to-speech |
+| **Push** | Send a push notification to all subscribed devices simultaneously |
 | **Security** | Password set via `ADMIN_PASSWORD` env var |
+
+### Release Notes
+
+Post versioned changelogs that appear in the admin panel's history. Each entry has a version string, date, and free-text notes field with Markdown support.
+
+1. Enter a **version** (e.g. `v2.4.0`), **date**, and **notes**.
+2. Click **📋 Post Release Notes**.
+3. All posted entries appear as a scrollable history below and can be individually deleted.
+
+### Push Notifications (Admin)
+
+- **Test Push** — send a test notification to all subscribed devices.
+- **Subscriber count** — shows how many devices are currently subscribed.
+- **Clear all subscriptions** — remove all push subscriptions (devices must re-subscribe).
+
+### Markdown support
+
+All admin messages (banners, popups), custom forecast descriptions, and release notes support **Markdown** formatting. Use it to add emphasis, lists, links, or code to any message.
+
+#### Example admin message (popup)
+
+> **Title:** ⚠️ Scheduled Maintenance  
+> **Text:**
+> ```markdown
+> The weather display will be **offline for ~10 minutes** tonight at *11:00 PM*.
+>
+> During this window:
+> - Data refresh will be paused
+> - Push notifications may be delayed
+>
+> No action is required on your part. Thank you for your patience!
+> ```
+
+#### Example custom forecast period description
+
+> **Period name:** Tonight  
+> **Description:**
+> ```markdown
+> Partly cloudy with a **30% chance of showers** after midnight.
+> Winds **SW 10–15 mph**, gusting to *25 mph* near the coast.
+> Stay weather-aware — [NWS discussion](https://forecast.weather.gov) updated hourly.
+> ```
+
+#### Example release notes
+
+> **Version:** v2.3.0  
+> **Notes:**
+> ```markdown
+> ## What's New
+>
+> - **Custom Forecast** descriptions now render **Markdown** — bold, italics, lists, and links all work.
+> - Release notes history in the admin panel also renders Markdown.
+> - Fixed a bug where the radar slide would briefly flash on slow connections.
+>
+> > Upgrade by pulling the latest image: `docker compose pull && docker compose up -d`
+> ```
+
+---
+
+## 🗺 Custom Forecast & Location Targeting
+
+Admins can publish a hand-crafted forecast that appears as a dedicated slide on every weather display. The forecast can be restricted to a specific geographic area so that only viewers in that area see it.
+
+### Building a forecast
+
+1. Open the admin panel (`/admin.html`) and scroll to **Custom Forecast**.
+2. Click **＋ Add Forecast Period** and fill in one or more periods (name is required; all other fields are optional).
+3. Configure a **Target Area** (see below).
+4. Click **📡 PUBLISH FORECAST**.
+
+To remove the forecast from all displays, click **Clear Forecast**.
+
+### Target Area modes
+
+| Mode | How it works |
+|------|-------------|
+| 🌍 **All Viewers** | Default — the slide appears on every display regardless of location. |
+| 📍 **Map Area** | Click the interactive map to drop a center pin, then enter a radius in miles. Viewers within that circle see the slide. |
+| 🏷 **ZIP Codes** | Enter a comma-separated list of 5-digit US ZIP codes. The slide appears only for viewers whose location reverse-geocodes to one of those ZIPs. |
+| 🗺 **Counties** | Enter comma-separated county names with state abbreviation (e.g. `Jefferson County CO, Cook County IL`). The slide appears only for viewers in a matching county. |
+
+> **How location is resolved:** When a viewer sets their location (search, GPS, or IP), the display silently reverse-geocodes their coordinates via Nominatim to obtain a ZIP code and county. This information is used to evaluate Map Area, ZIP, and County targeting entirely on the client — no personal data is sent to the admin server.
+
+---
+
+## 🌩 SPC Outlook
+
+The **SPC Outlook** slide displays NOAA Storm Prediction Center categorical severe weather risk for Days 1, 2, and 3. Risks are shown as color-coded bars ranging from General Thunderstorm (green) through Marginal, Slight, Enhanced, Moderate, and High (dark magenta).
+
+The slide fetches SPC GeoJSON data via the built-in `/api/spc-outlook?day=N` proxy endpoint (which handles CORS and caches responses for 15 minutes). The viewer's location is checked against each risk polygon using a ray-casting algorithm so only the highest applicable risk is displayed.
+
+---
+
+## 🔄 Automatic Cache Busting
+
+S.H.E.L.L.Y. automatically ensures users always load the latest code after a deploy — no manual browser cache clearing required.
+
+**How it works:**
+
+1. At startup, the server computes a `BUILD_HASH` (SHA-256 of all JS, CSS, and HTML files).
+2. The service worker (`/sw.js`) is served dynamically with `CACHE_VERSION` set to `shelly-<hash>`.
+3. When any file changes, the hash changes, the browser detects a new service worker, installs it, and the old cache is purged automatically.
+4. HTML files (`index.html`, `admin.html`) are served with `Cache-Control: no-cache` so the browser always re-fetches them, triggering the SW update check on every page load.
+
+> No action needed from you or your users — this happens automatically on every deploy.
 
 ---
 
@@ -278,3 +485,46 @@ node server.js
 ```
 
 Or just open `index.html` in a browser for everything except music streaming and the admin panel.
+
+---
+
+## 🌐 Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Port the Express server listens on |
+| `ADMIN_PASSWORD` | `weathernow` | Password for the admin panel — **change this before deploying** |
+| `VAPID_PUBLIC_KEY` | *(auto-generated)* | VAPID public key for Web Push. If not set, keys are auto-generated and saved to `.vapid-keys.json` |
+| `VAPID_PRIVATE_KEY` | *(auto-generated)* | VAPID private key — keep this secret, never commit it |
+| `VAPID_EMAIL` | `mailto:admin@shelly.local` | Contact email embedded in VAPID headers |
+| `CLOUDFLARE_TUNNEL_TOKEN` | — | Cloudflare Tunnel token (optional, for public hosting) |
+
+> **Note:** VAPID keys are auto-generated on first run and persisted to `.vapid-keys.json` (gitignored). This is fine for a single container. To preserve push subscriptions across container recreations, set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` as environment variables instead.
+
+---
+
+## 🔌 API Reference
+
+The Express server exposes the following endpoints (all `/api/*` routes are network-only — never cached by the service worker):
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/messages` | GET | No | Poll for announcements (optional `?since=ID`) |
+| `/api/announce` | POST | ✅ | Create announcement (banner or popup) |
+| `/api/messages/:id` | DELETE | ✅ | Delete a single announcement |
+| `/api/messages` | DELETE | ✅ | Clear all announcements |
+| `/api/push/vapid-key` | GET | No | Get the server's public VAPID key |
+| `/api/push/subscribe` | POST | No | Register a push subscription |
+| `/api/push/subscribe` | DELETE | No | Unsubscribe a push endpoint |
+| `/api/push/count` | GET | ✅ | Count active push subscribers |
+| `/api/push/send` | POST | ✅ | Send a test push to all subscribers |
+| `/api/release-notes` | GET | ✅ | Fetch all release notes |
+| `/api/release-notes` | POST | ✅ | Post a new release note |
+| `/api/release-notes/:id` | DELETE | ✅ | Delete a release note |
+| `/api/custom-forecast` | GET | No | Fetch the current custom forecast |
+| `/api/custom-forecast` | POST | ✅ | Publish or clear the custom forecast |
+| `/api/spc-outlook?day=N` | GET | No | Proxy NOAA SPC GeoJSON outlook (15 min cache) |
+| `/api/health` | GET | No | Server uptime + subscriber count |
+| `/api/verify` | GET | ✅ | Verify admin password |
+
+✅ = requires `X-Admin-Password` header or `password` in request body.

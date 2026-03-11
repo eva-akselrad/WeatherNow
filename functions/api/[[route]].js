@@ -23,6 +23,8 @@ const CORS = {
 
 const KV_MESSAGES_KEY = 'messages';
 const KV_SUBSCRIPTIONS_KEY = 'push_subscriptions';
+const KV_RELEASE_NOTES_KEY = 'release_notes';
+const KV_CUSTOM_FORECAST_KEY = 'custom_forecast';
 
 // ── Helpers ────────────────────────────────────────────────────────
 async function getMessages(env) {
@@ -36,6 +38,18 @@ async function getSubscriptions(env) {
 }
 async function saveSubscriptions(env, subs) {
     await env.WEATHERNOW_KV.put(KV_SUBSCRIPTIONS_KEY, JSON.stringify(subs));
+}
+async function getReleaseNotes(env) {
+    return (await env.WEATHERNOW_KV.get(KV_RELEASE_NOTES_KEY, 'json')) ?? [];
+}
+async function saveReleaseNotes(env, notes) {
+    await env.WEATHERNOW_KV.put(KV_RELEASE_NOTES_KEY, JSON.stringify(notes));
+}
+async function getCustomForecast(env) {
+    return (await env.WEATHERNOW_KV.get(KV_CUSTOM_FORECAST_KEY, 'json')) ?? { periods: [], targeting: { mode: 'all' }, updatedAt: null };
+}
+async function saveCustomForecast(env, forecast) {
+    await env.WEATHERNOW_KV.put(KV_CUSTOM_FORECAST_KEY, JSON.stringify(forecast));
 }
 
 function checkAuth(request, env) {
@@ -235,6 +249,92 @@ export async function onRequest({ request, env }) {
         const payload = JSON.stringify({ title, body, type, tag: 'test-push', url: '/' });
         const results = await fanOutPush(subs, payload, env);
         return json(results);
+    }
+
+    // ── Release Notes ────────────────────────────────────────────
+    if (path === '/api/release-notes' && method === 'GET') {
+        if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+        return json(await getReleaseNotes(env));
+    }
+
+    if (path === '/api/release-notes' && method === 'POST') {
+        if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+        const { version = '', notes = '' } = await request.json();
+        if (!notes.trim()) return json({ error: 'notes is required' }, 400);
+        const existing = await getReleaseNotes(env);
+        const nextId = existing.length ? Math.max(...existing.map(n => n.id)) + 1 : 1;
+        const note = { id: nextId, version: version.trim(), notes: notes.trim(), created: Date.now() };
+        await saveReleaseNotes(env, [note, ...existing]);
+        return json(note, 201);
+    }
+
+    const releaseNoteMatch = path.match(/^\/api\/release-notes\/(\d+)$/);
+    if (releaseNoteMatch && method === 'DELETE') {
+        if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+        const id = parseInt(releaseNoteMatch[1]);
+        const existing = await getReleaseNotes(env);
+        await saveReleaseNotes(env, existing.filter(n => n.id !== id));
+        return json({ ok: true });
+    }
+
+    if (path === '/api/release-notes' && method === 'DELETE') {
+        if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+        await saveReleaseNotes(env, []);
+        return json({ ok: true });
+    }
+
+    // ── Custom Forecast ──────────────────────────────────────────
+    if (path === '/api/custom-forecast' && method === 'GET') {
+        return json(await getCustomForecast(env));
+    }
+
+    if (path === '/api/custom-forecast' && method === 'POST') {
+        if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+        const { periods = [], targeting = { mode: 'all' } } = await request.json();
+        const forecast = { periods, targeting, updatedAt: Date.now() };
+        await saveCustomForecast(env, forecast);
+        return json(forecast);
+    }
+
+    if (path === '/api/custom-forecast' && method === 'DELETE') {
+        if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
+        const cleared = { periods: [], targeting: { mode: 'all' }, updatedAt: null };
+        await saveCustomForecast(env, cleared);
+        return json({ ok: true });
+    }
+
+    // ── SPC Outlook Proxy ────────────────────────────────────────
+    // Proxies NOAA SPC categorical outlook GeoJSON to avoid browser CORS restrictions.
+    if (path === '/api/spc-outlook' && method === 'GET') {
+        const day = url.searchParams.get('day') || '1';
+        const validFiles = {
+            '1': 'day1otlk_cat.nolyr.geojson',
+            '2': 'day2otlk_cat.nolyr.geojson',
+            '3': 'day3otlk_cat.nolyr.geojson',
+        };
+        const file = validFiles[day];
+        if (!file) return json({ error: 'Invalid day parameter. Use 1, 2, or 3.' }, 400);
+
+        const spcUrl = `https://www.spc.noaa.gov/products/outlook/${file}`;
+        try {
+            const upstream = await fetch(spcUrl, {
+                headers: { 'User-Agent': 'S.H.E.L.L.Y.-WeatherClient/1.0 (weather display)' },
+                signal: AbortSignal.timeout(10000),
+            });
+            if (!upstream.ok) {
+                return json({ error: `SPC returned ${upstream.status}` }, 502);
+            }
+            const data = await upstream.json();
+            return new Response(JSON.stringify(data), {
+                status: 200,
+                headers: {
+                    ...CORS,
+                    'Cache-Control': 'public, max-age=900',
+                },
+            });
+        } catch (err) {
+            return json({ error: 'Failed to fetch SPC outlook data' }, 502);
+        }
     }
 
     return json({ error: 'Not found' }, 404);

@@ -1,16 +1,20 @@
 /* ════════════════════════════════════════════════════════════════
-   radar.js – Leaflet map with NEXRAD radar via IEM WMS
-   
-   Why WMS instead of tile cache:
-   - Tile cache (IEM + NOAA) returns 404s or HTML error pages (ORB-blocked)
-   - WMS protocol always returns proper image/png content-type
-   - L.tileLayer.wms handles coordinate conversion automatically
-   - IEM WMS supports TIME parameter for animated frames
+   radar.js – Leaflet map with animated radar via RainViewer API
+
+   Why RainViewer instead of IEM WMS:
+   - IEM nexrad-n0q WMS ignores the TIME parameter and always returns
+     the current composite, so all animation frames were identical.
+   - setParams()+redraw() re-fetches tiles on every 700ms step; WMS
+     tiles take 1-3 s to load so the overlay was perpetually blank.
+   - RainViewer's public API returns Unix-timestamped tile cache paths
+     (no API key required).  Each frame has a unique URL so the browser
+     fetches and caches distinct images, and the opacity-toggle
+     animation is smooth because tiles are pre-loaded in the background.
    ════════════════════════════════════════════════════════════════ */
 
 const RadarMap = (() => {
   let map = null;
-  let frames = []; // [{time, layer}]
+  let frames = []; // [{dt, layer}]
   let currentFrame = 0;
   let animating = true;
   let animTimer = null;
@@ -18,76 +22,95 @@ const RadarMap = (() => {
   let pendingLat = null;
   let pendingLon = null;
   let refreshTimer = null;
+  let building = false; // in-flight guard for buildFrames
 
   const FRAME_COUNT = 6;
-  const FRAME_MIN = 5; // minutes between radar scans
   const ANIM_INTERVAL = 700; // ms per animation step
-  const WMS_OPACITY = 0.7;
+  const RADAR_OPACITY = 0.7;
 
-  // IEM WMS endpoints (NEXRAD composite base reflectivity)
-  const WMS_URL =
-    "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi";
-  const WMS_LAYER = "nexrad-n0q";
+  // RainViewer public API – no key required
+  const RV_API = "https://api.rainviewer.com/public/weather-maps.json";
+  // Tile URL template filled in per-frame from the API response
+  // path = e.g. "/v2/radar/1699999800"
+  // color 2 = classic colorized, smooth+snow flags = 1_1
+  const RV_TILE = (path) =>
+    `https://tilecache.rainviewer.com${path}/256/{z}/{x}/{y}/2/1_1.png`;
 
-  // ── Generate UTC timestamps ────────────────────────────────────
-  // IEM WMS accepts ISO 8601 strings: 2024-01-01T00:00:00Z
-  function makeTimes() {
-    const now = Date.now();
-    // Round to previous 5-min mark, then back extra 15 min for propagation lag
-    const base =
-      Math.floor(now / (FRAME_MIN * 60_000)) * (FRAME_MIN * 60_000) -
-      15 * 60_000;
-    const times = [];
-    for (let i = FRAME_COUNT - 1; i >= 0; i--) {
-      times.push(new Date(base - i * FRAME_MIN * 60_000));
+  // ── Fetch available radar frames from RainViewer ───────────────
+  async function fetchRainViewerFrames() {
+    try {
+      const resp = await fetch(RV_API);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const past = data.radar?.past ?? [];
+      return past.slice(-FRAME_COUNT);
+    } catch (e) {
+      console.warn("RainViewer fetch failed:", e);
+      return [];
     }
-    return times;
   }
 
-  function isoZ(d) {
-    return d.toISOString().replace(/\.\d{3}Z$/, "Z");
-  }
-
-  // ── Build WMS layer for a given time ──────────────────────────
-  function makeWmsLayer(dt) {
-    return L.tileLayer.wms(WMS_URL, {
-      layers: WMS_LAYER,
-      format: "image/png",
-      transparent: true,
-      version: "1.1.1",
-      time: isoZ(dt),
-      opacity: 0, // hidden by default; shown via showFrame
+  // ── Build a tile layer for one RainViewer frame ───────────────
+  function makeRVLayer(path) {
+    return L.tileLayer(RV_TILE(path), {
+      tileSize: 256,
+      opacity: 0, // hidden until showFrame makes it visible
       zIndex: 200,
+      // RainViewer 256-px tiles are only rendered for zoom levels 0–6.
+      // Setting maxNativeZoom prevents Leaflet from requesting unsupported
+      // zoom levels (which return a "Zoom Level Not Supported" error image);
+      // at higher map zooms Leaflet upscales the zoom-6 tile instead.
+      maxNativeZoom: 6,
       attribution:
-        '<a href="https://www.mesonet.agron.iastate.edu/" target="_blank">IEM/NEXRAD</a>',
+        '<a href="https://rainviewer.com" target="_blank" rel="noopener noreferrer">RainViewer</a>',
     });
   }
 
   // ── Build all animation frames ─────────────────────────────────
-  function buildFrames() {
-    // Remove old radar layers
-    frames.forEach((f) => map.removeLayer(f.layer));
-    frames = [];
+  async function buildFrames() {
+    // Prevent concurrent runs (two-stage location bootstrap fires render() twice)
+    if (building) return;
+    building = true;
+    try {
+      // Fetch new frames *before* touching existing layers so the radar stays
+      // visible if the API call fails or returns nothing.
+      const rvFrames = await fetchRainViewerFrames();
+      if (!rvFrames.length) {
+        console.warn("No radar frames available from RainViewer");
+        return;
+      }
 
-    const times = makeTimes();
-    times.forEach((dt) => {
-      const layer = makeWmsLayer(dt);
-      layer.addTo(map);
-      frames.push({ dt, layer });
-    });
+      // We have fresh frames – safe to replace the old ones.
+      frames.forEach((f) => {
+        if (map.hasLayer(f.layer)) map.removeLayer(f.layer);
+      });
+      frames = [];
 
-    currentFrame = frames.length - 1;
-    showFrame(currentFrame);
-    buildDots();
-    updateTimestamp();
-    if (animating) startAnimation();
+      rvFrames.forEach(({ time, path }) => {
+        const layer = makeRVLayer(path);
+        layer.addTo(map);
+        frames.push({ dt: new Date(time * 1000), layer });
+      });
+
+      currentFrame = frames.length - 1;
+      showFrame(currentFrame);
+      buildDots();
+      updateTimestamp();
+      if (animating) startAnimation();
+    } catch (e) {
+      console.warn("buildFrames error:", e);
+    } finally {
+      building = false;
+    }
   }
 
   // ── Show one frame ────────────────────────────────────────────
   function showFrame(idx) {
     if (!frames.length) return;
     idx = ((idx % frames.length) + frames.length) % frames.length;
-    frames.forEach((f, i) => f.layer.setOpacity(i === idx ? WMS_OPACITY : 0));
+    frames.forEach((f, i) =>
+      f.layer.setOpacity(i === idx ? RADAR_OPACITY : 0),
+    );
     currentFrame = idx;
     updateTimestamp();
     updateDots();
@@ -174,7 +197,7 @@ const RadarMap = (() => {
 
     map = L.map("radar-map", {
       center: [lat, lon],
-      zoom: 10,
+      zoom: 7,
       zoomControl: true,
       attributionControl: true,
       scrollWheelZoom: true,
@@ -221,7 +244,8 @@ const RadarMap = (() => {
   }
 
   function refreshAll() {
-    stopAnimation();
+    clearInterval(animTimer);
+    animTimer = null;
     buildFrames();
   }
 

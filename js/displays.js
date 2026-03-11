@@ -6,6 +6,13 @@ const Displays = (() => {
     function el(id) { return document.getElementById(id); }
     function txt(id, v) { const e = el(id); if (e) e.textContent = v ?? '--'; }
 
+    // ── Regional map state ────────────────────────────────────────
+    let obsMap = null;
+    let fcstMap = null;
+    // Store pending data so maps can be refreshed when first made visible
+    let pendingObsData = null;
+    let pendingFcstData = null;
+
     // ── Current Conditions ─────────────────────────────────────────
     function renderConditions(data) {
         const c = data.conditions;
@@ -224,12 +231,320 @@ const Displays = (() => {
         });
     }
 
+    // ── Custom Forecast ────────────────────────────────────────────
+    function renderCustomForecast(cf) {        const container = el('customforecast-container');
+        if (!container) return;
+        container.innerHTML = '';
+        const periods = cf?.periods || [];
+        if (!periods.length) return;
+        periods.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'day-card';
+            const hiLoHtml = (p.hi || p.lo)
+                ? `<div class="day-hi-lo">${p.hi ? `<span class="day-hi">${esc(p.hi)}</span>` : ''}${p.lo ? `<span class="day-lo">${esc(p.lo)}</span>` : ''}</div>`
+                : '';
+            card.innerHTML = `
+              <div class="day-name">${esc(p.name || '')}</div>
+              <div class="day-icon">${esc(p.icon || '🌤')}</div>
+              ${p.desc ? `<div class="day-desc markdown-body">${(typeof marked !== 'undefined' ? marked.parse(p.desc, { breaks: true }) : esc(p.desc))}</div>` : ''}
+              ${hiLoHtml}
+              ${p.precip ? `<div class="day-precip">💧 ${esc(String(p.precip))}%</div>` : ''}
+              ${p.wind ? `<div class="day-wind">💨 ${esc(p.wind)}</div>` : ''}
+            `;
+            container.appendChild(card);
+        });
+        const updatedEl = el('customforecast-updated');
+        if (updatedEl && cf?.updatedAt) {
+            updatedEl.textContent = `Updated: ${new Date(cf.updatedAt).toLocaleString()}`;
+        }
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /** Convert a 6-digit hex colour (#rrggbb) to "r,g,b" string for rgba(). */
+    function hexToRgb(hex) {
+        const n = parseInt(hex.replace('#', ''), 16);
+        return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+    }
+
+    // ── Travel Forecast ────────────────────────────────────────────
+    // Full-screen WeatherStar-style vertical list: city / icon / lo / hi
+    function renderTravel(data) {
+        const rows = el('travel-rows');
+        if (!rows) return;
+
+        const cities = data.travelCities || [];
+        const dayLabel = el('travel-day-label');
+        if (dayLabel) {
+            const today = new Date();
+            dayLabel.textContent = `Travel Forecast \u2014 ${today.toLocaleDateString('en-US', { weekday: 'long' })}`;
+        }
+
+        if (!cities.length) {
+            rows.innerHTML = '<div class="no-alerts" style="margin:auto">📡 Fetching city data…</div>';
+        } else {
+            rows.innerHTML = cities.map(city => {
+                const stateBadge = city.state
+                    ? `<span class="ws4k-city-state">${esc(city.state)}</span>`
+                    : '';
+                return `
+                  <div class="ws4k-city-row">
+                    <span class="ws4k-city-name">${esc(city.name)}${stateBadge}</span>
+                    <span class="ws4k-city-icon">${city.icon || '?'}</span>
+                    <span class="ws4k-city-lo">${esc(stripDeg(city.lo))}</span>
+                    <span class="ws4k-city-hi">${esc(stripDeg(city.hi))}</span>
+                  </div>`;
+            }).join('');
+        }
+
+        const footer = el('travel-footer');
+        if (footer && data.conditions) {
+            const c = data.conditions;
+            footer.textContent = `Humidity: ${c.humidity}   \u2022   Dewpoint: ${c.dewpoint}`;
+        }
+    }
+
+    /** Strip trailing "°F" / "°C" suffix so numbers sit cleaner in the table. */
+    function stripDeg(s) {
+        if (!s) return '--';
+        return String(s).replace(/°[FC]$/, '').replace(/°$/, '') || '--';
+    }
+
+    // ── Shared Leaflet map factory ──────────────────────────────────
+    /**
+     * Create a Leaflet map inside `containerId` and return it.
+     * Safe to call only once per container — callers guard with the
+     * module-level `obsMap` / `fcstMap` null-check.
+     * Returns null if the container element is missing.
+     */
+    function createRegionalMap(containerId) {
+        const container = el(containerId);
+        if (!container) return null;
+
+        const map = L.map(containerId, {
+            zoomControl: false,
+            attributionControl: true,
+            dragging: false,
+            touchZoom: false,
+            doubleClickZoom: false,
+            scrollWheelZoom: false,
+            boxZoom: false,
+            keyboard: false,
+        });
+
+        // Same CartoDB Dark All tiles as the radar slide — already dark, no filter needed.
+        L.tileLayer(
+            'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            {
+                attribution: '© <a href="https://www.openstreetmap.org">OSM</a> © <a href="https://carto.com/">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 15,
+            }
+        ).addTo(map);
+
+        return map;
+    }
+
+    /** Build a custom divIcon marker showing city name, temperature and icon. */
+    function makeCityMarker(city, tempText, iconEmoji) {
+        const html = `
+          <div class="ws4k-marker">
+            <span class="ws4k-marker-name">${esc(city.name)}</span>
+            <span class="ws4k-marker-row">
+              <span class="ws4k-marker-temp">${esc(tempText)}</span>
+              <span class="ws4k-marker-icon">${iconEmoji || ''}</span>
+            </span>
+          </div>`;
+        return L.marker([city.lat, city.lon], {
+            icon: L.divIcon({ html, className: '', iconSize: [100, 55], iconAnchor: [50, 55] }),
+            interactive: false,
+        });
+    }
+
+    /** Place markers on a map, fit bounds, and refresh size. */
+    function populateMap(map, cities, getValue, getIcon) {
+        // Clear old markers
+        map.eachLayer(l => { if (l instanceof L.Marker) map.removeLayer(l); });
+
+        const coords = [];
+        cities.forEach(city => {
+            if (city.error) return;
+            const marker = makeCityMarker(city, getValue(city), getIcon(city));
+            marker.addTo(map);
+            coords.push([city.lat, city.lon]);
+        });
+
+        if (coords.length) {
+            const bounds = L.latLngBounds(coords).pad(0.25);
+            map.fitBounds(bounds, { animate: false });
+        }
+
+        map.invalidateSize();
+    }
+
+    // ── Regional Observations ──────────────────────────────────────
+    function renderRegionalObs(data) {
+        pendingObsData = data;
+
+        const container = el('regional-obs-map');
+        if (!container || container.offsetWidth === 0) return; // slide not visible yet
+
+        if (!obsMap) obsMap = createRegionalMap('regional-obs-map');
+        if (!obsMap) return;
+
+        const cities = data.nearbyCities || [];
+        if (!cities.length) return;
+
+        populateMap(obsMap, cities,
+            c => stripDeg(c.temp),
+            c => c.icon || '?'
+        );
+
+        const footer = el('regional-obs-footer');
+        if (footer && data.conditions) {
+            const c = data.conditions;
+            const extra = c.windChill !== '--'
+                ? `Wind Chill: ${c.windChill}`
+                : c.heatIndex !== '--' ? `Heat Index: ${c.heatIndex}` : '';
+            footer.textContent = `Temp: ${c.temp}   \u2022   ${extra}`.replace(/\s*\u2022\s*$/, '').trim();
+        }
+    }
+
+    // ── Regional Forecast ──────────────────────────────────────────
+    function renderRegionalFcst(data) {
+        pendingFcstData = data;
+
+        const container = el('regional-fcst-map');
+        if (!container || container.offsetWidth === 0) return;
+
+        if (!fcstMap) fcstMap = createRegionalMap('regional-fcst-map');
+        if (!fcstMap) return;
+
+        const cities = data.nearbyCities || [];
+        if (!cities.length) return;
+
+        populateMap(fcstMap, cities,
+            c => stripDeg(c.tomorrowHi || c.hi),
+            c => c.tomorrowIcon || c.icon || '?'
+        );
+
+        const footer = el('regional-fcst-footer');
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dayName = tomorrow.toLocaleDateString('en-US', { weekday: 'long' });
+
+        // Update the map overlay title with the forecast day
+        const mapTitle = el('regional-fcst-map-title');
+        if (mapTitle) mapTitle.textContent = `Forecast for ${dayName}`;
+
+        if (footer && data.conditions) {
+            const c = data.conditions;
+            const extra = c.windChill !== '--'
+                ? `Wind Chill: ${c.windChill}`
+                : c.heatIndex !== '--' ? `Heat Index: ${c.heatIndex}` : '';
+            footer.textContent = `${dayName}   \u2022   Temp: ${c.temp}   \u2022   ${extra}`.replace(/\s*\u2022\s*$/, '').trim();
+        }
+    }
+
+    // ── SPC Outlook ─────────────────────────────────────────────────
+    // Horizontal bar chart — one row per day, bar width ∝ risk level.
+    function renderSPCOutlook(data) {
+        const container = el('spc-chart');
+        if (!container) return;
+
+        const spc = data.spcOutlook;
+        if (!spc || !spc.valid) {
+            container.innerHTML = `
+              <div style="flex:1;display:flex;align-items:center;justify-content:center">
+                <div class="no-alerts">⛅ SPC outlook data unavailable.</div>
+              </div>`;
+            return;
+        }
+
+        // Risk-level metadata — ascending severity order
+        const RISK = [
+            { key: null,   pct: 0,   label: 'No Risk',   color: null },
+            { key: 'TSTM', pct: 14,  label: 'T-Storm',   color: '#607d8b' },
+            { key: 'MRGL', pct: 28,  label: 'Marginal',  color: '#4caf50' },
+            { key: 'SLGT', pct: 46,  label: 'Slight',    color: '#cddc39' },
+            { key: 'ENH',  pct: 62,  label: 'Enhanced',  color: '#ff9800' },
+            { key: 'MDT',  pct: 78,  label: 'Moderate',  color: '#f44336' },
+            { key: 'HIGH', pct: 100, label: 'High',      color: '#e91e63' },
+        ];
+
+        // Scale legend bands (skip the null/no-risk entry)
+        const scaleBands = RISK.slice(1).map(r =>
+            `<div class="ws4k-spc-band" style="background:${r.color}">${r.label}</div>`
+        ).join('');
+
+        // Build day rows
+        const dayRows = spc.days.map(day => {
+            const meta = RISK.find(r => r.key === day.risk) || RISK[0];
+            const isNoRisk = meta.pct === 0;
+
+            const barHtml = isNoRisk
+                ? `<div class="ws4k-spc-bar ws4k-spc-bar-norisk">
+                     <span class="ws4k-spc-norisk-text">No Thunderstorm Risk</span>
+                   </div>`
+                : `<div class="ws4k-spc-bar ws4k-spc-bar-active" data-w="${meta.pct}"
+                        style="width:0%;background:${meta.color}">
+                     <span class="ws4k-spc-bar-text">${esc(day.riskLabel || meta.label)}</span>
+                   </div>`;
+
+            return `
+              <div class="ws4k-spc-day-row">
+                <span class="ws4k-spc-day-name">${esc(day.dayName)}</span>
+                <div class="ws4k-spc-bar-track">${barHtml}</div>
+              </div>`;
+        }).join('');
+
+        container.innerHTML = `
+          <div class="ws4k-spc-heading">
+            <span class="ws4k-spc-heading-title">SPC Outlook</span>
+            <span class="ws4k-spc-heading-sub">Convective Forecast</span>
+          </div>
+          <div class="ws4k-spc-scale-wrapper">
+            <div class="ws4k-spc-scale-spacer"></div>
+            <div class="ws4k-spc-scale">${scaleBands}</div>
+          </div>
+          <div class="ws4k-spc-days">${dayRows}</div>`;
+
+        // Animate active bars: start at 0% → expand to target after paint
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                container.querySelectorAll('.ws4k-spc-bar-active').forEach(b => {
+                    const w = b.dataset.w;
+                    if (w) b.style.width = `${w}%`;
+                });
+            });
+        });
+    }
+
     // ── Ticker ─────────────────────────────────────────────────────
     function updateTicker(data, slideTitle) {
         const ticker = el('ticker-text');
         const label = el('ticker-label');
         if (label) label.textContent = slideTitle || 'CONDITIONS';
         if (ticker && data.ticker) ticker.textContent = data.ticker;
+    }
+
+    // ── Map visibility callbacks (called from app.js) ───────────────
+    function onRegionalObsVisible() {
+        if (!obsMap) obsMap = createRegionalMap('regional-obs-map');
+        if (obsMap) {
+            obsMap.invalidateSize();
+            if (pendingObsData) renderRegionalObs(pendingObsData);
+        }
+    }
+
+    function onRegionalFcstVisible() {
+        if (!fcstMap) fcstMap = createRegionalMap('regional-fcst-map');
+        if (fcstMap) {
+            fcstMap.invalidateSize();
+            if (pendingFcstData) renderRegionalFcst(pendingFcstData);
+        }
     }
 
     // ── Render all ─────────────────────────────────────────────────
@@ -243,12 +558,19 @@ const Displays = (() => {
         renderAirQuality(weatherData);
         renderRadar(lat, lon);
         renderAlerts(alerts, onTTS);
+        renderCustomForecast(weatherData.customForecast);
+        renderTravel(weatherData);
+        renderRegionalObs(weatherData);
+        renderRegionalFcst(weatherData);
+        renderSPCOutlook(weatherData);
         updateTicker(weatherData, 'CONDITIONS');
     }
 
     return {
         renderAll, renderConditions, renderObservations, renderHourly, renderExtended,
         renderPrecipChart, renderAlmanac, renderAirQuality,
-        renderRadar, renderAlerts, updateTicker
+        renderRadar, renderAlerts, renderCustomForecast, updateTicker,
+        renderTravel, renderRegionalObs, renderRegionalFcst, renderSPCOutlook,
+        onRegionalObsVisible, onRegionalFcstVisible,
     };
 })();
