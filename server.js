@@ -216,7 +216,7 @@ app.get('/api/armageddon', (req, res) => {
 
 // ── POST /api/armageddon ───────────────────────────────────────
 // Body: { title, text, type }
-app.post('/api/armageddon', (req, res) => {
+app.post('/api/armageddon', adminLimiter, (req, res) => {
     if (!checkAuth(req, res)) return;
     const { title = '', text, type = 'emergency' } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: 'text required' });
@@ -226,7 +226,7 @@ app.post('/api/armageddon', (req, res) => {
 });
 
 // ── DELETE /api/armageddon ─────────────────────────────────────
-app.delete('/api/armageddon', (req, res) => {
+app.delete('/api/armageddon', adminLimiter, (req, res) => {
     if (!checkAuth(req, res)) return;
     armageddonState = null;
     console.log('[Admin] Armageddon mode deactivated');
