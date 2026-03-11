@@ -139,9 +139,11 @@ const Announcements = (() => {
         banner.dataset.type = msg.type;
         if (icon) icon.textContent = icons[msg.type] || 'ℹ';
 
-        let parsedText = escHtml(msg.text);
+        // Strip newlines to keep the banner strictly single-line
+        const flatText = msg.text.replace(/[\r\n]+/g, ' ').trim();
+        let parsedText = escHtml(flatText);
         if (typeof marked !== 'undefined') {
-            parsedText = marked.parseInline(msg.text, { breaks: true });
+            parsedText = marked.parseInline(flatText);
         }
         text.innerHTML = (msg.title ? `<strong>${escHtml(msg.title)}:</strong> ` : '') + parsedText;
 

@@ -842,6 +842,9 @@ body {
     z-index: 9;
     position: relative;
     flex-shrink: 0;
+    height: 2.5rem;
+    max-height: 2.5rem;
+    overflow: hidden;
     animation: alert-pulse 1.5s infinite;
 }
 
@@ -873,6 +876,9 @@ body {
 .admin-announce-banner {
     display: flex;
     align-items: center;
+    height: 2.5rem;
+    max-height: 2.5rem;
+    overflow: hidden;
     gap: 12px;
     padding: 8px 16px;
     z-index: 9;
