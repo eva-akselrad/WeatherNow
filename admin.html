@@ -1612,7 +1612,6 @@
                 const title = document.getElementById('arm-title').value.trim();
                 const duration = parseInt(document.getElementById('arm-duration').value) || 0;
                 const meta = ARM_TYPES[selectedArmType] || ARM_TYPES.emergency;
-                const typeBtn = document.querySelector(`.arm-type-btn[data-type="${selectedArmType}"]`);
 
                 // Populate confirmation modal
                 document.getElementById('arm-confirm-icon').textContent = meta.icon;

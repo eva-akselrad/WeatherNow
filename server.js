@@ -106,7 +106,7 @@ let customForecasts = [];  // array of { id, label, periods, targeting, updatedA
 let customForecastId = 1;
 
 // Armageddon mode – when set, overrides the entire display with a single message
-// Shape: { title, text, type } or null when inactive
+// Shape: { title, text, type, activatedAt, expiresAt } or null when inactive
 let armageddonState = null;
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'weathernow';
@@ -124,16 +124,6 @@ app.use('/api/announce', adminLimiter);
 app.use('/api/messages', adminLimiter);
 app.use('/api/push', adminLimiter);
 app.use('/api/release-notes', adminLimiter);
-app.use('/api/armageddon', (req, res, next) => {
-    if (req.method === 'GET') return next();
-    return adminLimiter(req, res, next);
-});
-app.use('/api/custom-forecast', (req, res, next) => {
-    if (req.method === 'GET') {
-        return next();
-    }
-    return adminLimiter(req, res, next);
-});
 
 // ── Auth helper ────────────────────────────────────────────────
 function checkAuth(req, res) {

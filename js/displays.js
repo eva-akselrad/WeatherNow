@@ -76,7 +76,7 @@ const Displays = (() => {
                 label: '🌧 Precipitation & Extremes',
                 cls: 'obs-section-precip',
                 items: [
-                    { icon: '🌧', label: 'Precip (1h)', value: c.precipitation24h },
+                    { icon: '🌧', label: 'Precip (24h)', value: c.precipitation24h },
                     { icon: '❄️', label: 'Snow Depth', value: c.snowDepth },
                     { icon: '🔥', label: 'Heat Index', value: c.heatIndex !== '--' ? c.heatIndex : 'N/A' },
                     { icon: '🥶', label: 'Wind Chill', value: c.windChill !== '--' ? c.windChill : 'N/A' },

@@ -481,8 +481,9 @@ const WeatherAPI = (() => {
     /**
      * Fetch SPC categorical outlook for Days 1–3 via local proxy.
      * Returns { day1, day2, day3 } where each is a GeoJSON FeatureCollection or null.
-     * Uses a single combined request and relies on the server's Cache-Control headers
-     * (max-age=900) to avoid hitting SPC upstream on every refresh cycle.
+     * Performs three separate requests (one per day); relies on the server's
+     * Cache-Control headers (max-age=900) to avoid hitting SPC upstream on every
+     * refresh cycle.
      */
     async function fetchSPCOutlook() {
         const days = ['1', '2', '3'];

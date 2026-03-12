@@ -8,6 +8,7 @@ const Announcements = (() => {
     let pollTimer = null;
     const POLL_MS = 10000;   // 10 s — was two separate 5 s loops (24 req/min → 6 req/min)
     let armageddonActive = false;
+    let armageddonVersion = null; // tracks activatedAt to detect updates while active
 
     // ── TTS helper ────────────────────────────────────────────────
     function speakMessage(msg) {
@@ -99,12 +100,18 @@ const Announcements = (() => {
             });
 
             // Handle armageddon state changes
-            if (armageddon.active && !armageddonActive) {
-                showArmageddonOverlay(armageddon);
-                armageddonActive = true;
-            } else if (!armageddon.active && armageddonActive) {
+            if (armageddon.active) {
+                const ver = armageddon.activatedAt;
+                if (!armageddonActive || ver !== armageddonVersion) {
+                    removeArmageddonOverlay();
+                    showArmageddonOverlay(armageddon);
+                    armageddonActive = true;
+                    armageddonVersion = ver;
+                }
+            } else if (armageddonActive) {
                 removeArmageddonOverlay();
                 armageddonActive = false;
+                armageddonVersion = null;
             }
         } catch {
             if (window.location.protocol === 'file:') clearInterval(pollTimer);
@@ -289,7 +296,8 @@ const Announcements = (() => {
 
         let parsedBody = escHtml(data.text);
         if (typeof marked !== 'undefined') {
-            parsedBody = marked.parse(data.text, { breaks: true });
+            const raw = marked.parse(data.text, { breaks: true });
+            parsedBody = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(raw) : raw;
         }
 
         overlay.innerHTML = `

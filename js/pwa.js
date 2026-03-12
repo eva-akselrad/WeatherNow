@@ -20,7 +20,8 @@
 
     function setPromptCookie() {
         const expires = new Date(Date.now() + PROMPT_COOKIE_DURATION_MS).toUTCString();
-        document.cookie = `${PROMPT_COOKIE}=1; expires=${expires}; path=/; SameSite=Lax`;
+        const secureAttr = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `${PROMPT_COOKIE}=1; expires=${expires}; path=/; SameSite=Lax${secureAttr}`;
     }
 
     function hasPromptCookie() {
