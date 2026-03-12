@@ -627,7 +627,8 @@ const WeatherAPI = (() => {
 
         // nearbyCities → Regional Obs/Forecast slides (position-dependent)
         // travelCities → Travel Forecast slide (fixed well-known cities)
-        const [raw, aq, alerts, cf, nearbyCities, travelCities, spcRaw] = await Promise.all([
+        // camData      → Live Local Cams slide (nearest webcam via /api/local-cam)
+        const [raw, aq, alerts, cf, nearbyCities, travelCities, spcRaw, camData] = await Promise.all([
             fetchWeather(currentLat, currentLon),
             fetchAirQuality(currentLat, currentLon),
             fetchAlerts(currentLat, currentLon),
@@ -639,6 +640,9 @@ const WeatherAPI = (() => {
                 typeof DEFAULT_TRAVEL_CITIES !== 'undefined' ? DEFAULT_TRAVEL_CITIES : []
             ).catch(() => []),
             fetchSPCOutlook().catch(() => ({ day1: null, day2: null, day3: null })),
+            fetch(`/api/local-cam?lat=${currentLat}&lon=${currentLon}`)
+                .then(r => r.ok ? r.json() : { cameras: [] })
+                .catch(() => ({ cameras: [] })),
         ]);
 
         weatherData = processData(raw, aq);
@@ -646,6 +650,9 @@ const WeatherAPI = (() => {
         weatherData.nearbyCities = nearbyCities;
         weatherData.travelCities = travelCities;
         weatherData.spcOutlook = processSPCOutlook(spcRaw, currentLat, currentLon);
+        weatherData.localCam = Array.isArray(camData.cameras) && camData.cameras.length
+            ? camData.cameras[0]
+            : null;
         alertsData = alerts;
         return { weather: weatherData, alerts: alertsData };
     }

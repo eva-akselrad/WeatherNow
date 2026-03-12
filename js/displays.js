@@ -600,6 +600,13 @@ const Displays = (() => {
         }
     }
 
+    // ── Local Cam ──────────────────────────────────────────────────
+    function renderLocalCam(weatherData) {
+        if (typeof LocalCam !== 'undefined') {
+            LocalCam.setCam(weatherData.localCam || null);
+        }
+    }
+
     // ── Map visibility callbacks (called from app.js) ───────────────
     function onRegionalObsVisible() {
         if (!obsMap) obsMap = createRegionalMap('regional-obs-map');
@@ -633,6 +640,7 @@ const Displays = (() => {
         renderRegionalObs(weatherData);
         renderRegionalFcst(weatherData);
         renderSPCOutlook(weatherData);
+        renderLocalCam(weatherData);
         updateTicker(weatherData, 'CONDITIONS');
     }
 
@@ -640,7 +648,7 @@ const Displays = (() => {
         renderAll, renderConditions, renderObservations, renderHourly, renderExtended,
         renderPrecipChart, renderAlmanac, renderAirQuality,
         renderRadar, renderAlerts, renderCustomForecast, updateTicker,
-        renderTravel, renderRegionalObs, renderRegionalFcst, renderSPCOutlook,
+        renderTravel, renderRegionalObs, renderRegionalFcst, renderSPCOutlook, renderLocalCam,
         onRegionalObsVisible, onRegionalFcstVisible,
     };
 })();

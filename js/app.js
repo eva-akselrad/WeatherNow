@@ -73,6 +73,7 @@
             { id: 'slide-radar', display: 'radar', label: 'RADAR' },
             { id: 'slide-alerts', display: 'alerts', label: 'ALERTS' },
             { id: 'slide-customforecast', display: 'customforecast', label: 'CUSTOM FORECAST' },
+            { id: 'slide-localcam', display: 'localcam', label: 'LIVE LOCAL CAMS' },
         ];
 
         slideIds = allSlides.filter(s => active.includes(s.display));
@@ -212,6 +213,9 @@
         // Stop any running autoscroll before transitioning
         stopAutoScroll();
 
+        // Stop local cam image refresh when leaving that slide
+        if (typeof LocalCam !== 'undefined') LocalCam.stopRefresh();
+
         // Hide all visible slides
         document.querySelectorAll('.slide.active').forEach(s => {
             s.classList.add('slide-exit');
@@ -269,6 +273,15 @@
         }
         if (target.display === 'regionalfcst' && typeof Displays !== 'undefined') {
             setTimeout(() => Displays.onRegionalFcstVisible(), 80);
+        }
+
+        // Live Local Cams: skip if no webcam was found for this location
+        if (target.display === 'localcam') {
+            if (typeof LocalCam === 'undefined' || !LocalCam.hasCam()) {
+                setTimeout(() => goToSlide((idx + 1) % slideIds.length), 50);
+                return;
+            }
+            setTimeout(() => LocalCam.onSlideVisible(), 80);
         }
     }
 

@@ -78,6 +78,7 @@
                 <label><input type="checkbox" data-display="radar" checked /> Radar</label>
                 <label><input type="checkbox" data-display="alerts" checked /> Severe Alerts</label>
                 <label><input type="checkbox" data-display="customforecast" checked /> Custom Forecast</label>
+                <label><input type="checkbox" data-display="localcam" checked /> Live Local Cams</label>
             </div>
         </section>
 
@@ -512,6 +513,17 @@
                 <div id="spc-chart" class="ws4k-spc-layout"></div>
             </div>
 
+            <!-- Live Local Cams -->
+            <div class="slide hidden slide-no-pad" id="slide-localcam" data-display="localcam">
+                <div class="cam-viewport">
+                    <img id="cam-image" class="cam-image" src="" alt="Webcam feed" />
+                    <div id="cam-overlay" class="cam-overlay hidden">
+                        <span id="cam-title" class="cam-title"></span>
+                        <span class="cam-live-badge" aria-label="Live webcam feed">● LIVE</span>
+                    </div>
+                </div>
+            </div>
+
         </div><!-- /slide-viewport -->
 
         <!-- PROGRESS BAR -->
@@ -566,6 +578,7 @@
     <script src="js/weather.js"></script>
     <script src="js/alerts.js"></script>
     <script src="js/radar.js"></script>
+    <script src="js/localcam.js"></script>
     <script src="js/displays.js"></script>
     <script src="js/app.js"></script>
     <script src="js/announcements.js"></script>

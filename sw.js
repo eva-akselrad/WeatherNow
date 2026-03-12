@@ -16,6 +16,7 @@ const APP_SHELL = [
     '/js/weather.js',
     '/js/alerts.js',
     '/js/radar.js',
+    '/js/localcam.js',
     '/js/displays.js',
     '/js/app.js',
     '/js/announcements.js',

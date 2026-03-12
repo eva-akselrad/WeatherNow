@@ -3320,3 +3320,70 @@ body.kiosk-mode #pwa-guide-modal {
         font-size: 0.72rem;
     }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   LIVE LOCAL CAMS SLIDE
+   Full-screen webcam image with location title overlay at bottom.
+   ════════════════════════════════════════════════════════════════ */
+
+.cam-viewport {
+    position: relative;
+    flex: 1;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.cam-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cam-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 20px 14px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.cam-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cam-live-badge {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: rgba(239, 68, 68, 0.9);
+    color: #fff;
+    letter-spacing: 0.12em;
+    flex-shrink: 0;
+    animation: cam-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cam-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.55; }
+}
