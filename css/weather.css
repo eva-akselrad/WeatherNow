@@ -1356,6 +1356,12 @@ body {
     background: rgba(6, 182, 212, 0.1);
 }
 
+.slide-badge.open-meteo {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
+}
+
 /* ── Slide footer bar (Travel, Regional) ─────────────────────── */
 /* A slim informational strip at the bottom of a slide, matching  */
 /* the existing bottom-bar / stat-row visual language.            */
@@ -3061,6 +3067,129 @@ body.kiosk-mode #pwa-guide-modal {
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.12em;
+}
+
+/* ── Extended Forecast: trend badge ──────────────────────────── */
+.extended-trend-badge {
+    grid-column: 1 / -1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid;
+    align-self: start;
+    justify-self: start;
+}
+
+.extended-trend-badge.trend-warming {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+}
+
+.extended-trend-badge.trend-cooling {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+}
+
+.extended-trend-badge.trend-stable {
+    background: rgba(156, 163, 175, 0.12);
+    border-color: rgba(156, 163, 175, 0.3);
+    color: var(--text-secondary);
+}
+
+/* ── Hourly card humidity row ────────────────────────────────── */
+.hourly-humidity {
+    font-size: 0.78rem;
+    color: var(--accent2);
+    font-weight: 500;
+}
+
+/* ── Seasonal Outlook ─────────────────────────────────────────── */
+.seasonal-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+    height: calc(100% - 80px);
+    overflow-y: auto;
+}
+
+.seasonal-card {
+    background: var(--grad-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    text-align: center;
+    transition: border-color 0.2s, transform 0.2s;
+}
+
+.seasonal-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+}
+
+.seasonal-month {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.seasonal-temp-bar-wrap {
+    position: relative;
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.seasonal-temp-bar {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 3px;
+    min-width: 8px;
+}
+
+.seasonal-hi-lo {
+    display: flex;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+}
+
+.seasonal-hi {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.seasonal-lo {
+    color: var(--text-secondary);
+}
+
+.seasonal-precip {
+    font-size: 0.78rem;
+    color: var(--accent2);
+    font-weight: 500;
+}
+
+.seasonal-wind {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
 }
 
 /* ════════════════════════════════════════════════════════════════

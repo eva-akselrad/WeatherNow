@@ -86,7 +86,7 @@ const WeatherAPI = (() => {
             wind_speed_unit: windU,
             precipitation_unit: precU,
             timezone: 'auto',
-            forecast_days: 8,
+            forecast_days: 14,
             forecast_hours: 48,
             past_hours: 2
         });
@@ -294,7 +294,7 @@ const WeatherAPI = (() => {
         // Hourly (next 48h, skip past_hours offset)
         const hourlyOffset = 2; // past_hours=2
         const hourly = [];
-        for (let i = hourlyOffset; i < Math.min(hourlyOffset + 24, h.time.length); i++) {
+        for (let i = hourlyOffset; i < Math.min(hourlyOffset + 48, h.time.length); i++) {
             const t = new Date(h.time[i]);
             const wxH = wmoToWeather(h.weather_code[i], t.getHours() >= 6 && t.getHours() < 20);
             hourly.push({
@@ -305,6 +305,7 @@ const WeatherAPI = (() => {
                 precip: h.precipitation_probability[i] > 5 ? `💧 ${h.precipitation_probability[i]}%` : '',
                 precipAmt: h.precipitation?.[i] > 0 ? `${h.precipitation[i].toFixed(2)}"` : '',
                 wind: h.wind_speed_10m?.[i] ? `${Math.round(h.wind_speed_10m[i])} ${windU}` : '',
+                humidity: h.relative_humidity_2m?.[i] != null ? `${h.relative_humidity_2m[i]}%` : '',
                 cloud: h.cloud_cover?.[i] != null ? `${h.cloud_cover[i]}%` : '',
                 isCurrent: i === hourlyOffset
             });
@@ -323,10 +324,10 @@ const WeatherAPI = (() => {
             });
         }
 
-        // Daily (7-day)
+        // Daily (up to 14 days)
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const daily = [];
-        for (let i = 0; i < Math.min(7, d.time.length); i++) {
+        for (let i = 0; i < Math.min(14, d.time.length); i++) {
             const dt = new Date(d.time[i] + 'T12:00:00');
             const wxD = wmoToWeather(d.weather_code[i]);
             daily.push({
@@ -334,6 +335,8 @@ const WeatherAPI = (() => {
                 icon: wxD.emoji, desc: wxD.desc,
                 hi: fmtTemp(d.temperature_2m_max[i]),
                 lo: fmtTemp(d.temperature_2m_min[i]),
+                hiRaw: d.temperature_2m_max[i],
+                loRaw: d.temperature_2m_min[i],
                 precip: d.precipitation_probability_max[i] > 5 ? `💧 ${d.precipitation_probability_max[i]}%` : '',
                 precipSum: d.precipitation_sum?.[i] > 0 ? `${d.precipitation_sum[i].toFixed(2)} ${useFahrenheit ? 'in' : 'mm'}` : '',
                 snowSum: d.snowfall_sum?.[i] > 0 ? `❄ ${d.snowfall_sum[i].toFixed(1)} ${useFahrenheit ? 'in' : 'cm'}` : '',
@@ -341,6 +344,18 @@ const WeatherAPI = (() => {
                 uvMax: d.uv_index_max?.[i] != null ? d.uv_index_max[i].toFixed(0) : '--',
                 isToday: i === 0
             });
+        }
+
+        // Temperature trend analysis over the forecast period
+        const hiTemps = daily.map(x => x.hiRaw).filter(v => v != null);
+        let extendedTrend = { dir: 'stable', symbol: '→', label: 'Stable', diff: 0 };
+        if (hiTemps.length >= 4) {
+            const half = Math.floor(hiTemps.length / 2);
+            const firstAvg = hiTemps.slice(0, half).reduce((s, v) => s + v, 0) / half;
+            const lastAvg = hiTemps.slice(-half).reduce((s, v) => s + v, 0) / half;
+            const diff = Math.round(lastAvg - firstAvg);
+            if (diff >= 3) extendedTrend = { dir: 'warming', symbol: '↑', label: 'Warming', diff };
+            else if (diff <= -3) extendedTrend = { dir: 'cooling', symbol: '↓', label: 'Cooling', diff };
         }
 
         // Almanac
@@ -384,7 +399,7 @@ const WeatherAPI = (() => {
         // Ticker
         const ticker = `${wx.emoji} ${wx.desc} | ${conditions.temp} (Feels ${conditions.feelsLike}) | Humidity: ${conditions.humidity} | Dewpoint: ${conditions.dewpoint} | Wind: ${conditions.wind} | Gusts: ${conditions.gusts} | Visibility: ${conditions.visibility} | Pressure: ${conditions.pressure} ${pressureTrend} | UV: ${conditions.uvRaw ?? '--'} | Cloud Cover: ${cloudPct}%${c.snow_depth > 0 ? ' | Snow Depth: ' + conditions.snowDepth : ''}`;
 
-        return { conditions, hourly, daily, almanac, airQuality, pollen, precipChart, ticker };
+        return { conditions, hourly, daily, extendedTrend, almanac, airQuality, pollen, precipChart, ticker };
     }
 
     // ── Multi-city helpers ────────────────────────────────────────
@@ -499,6 +514,81 @@ const WeatherAPI = (() => {
             day2: results[1].status === 'fulfilled' ? results[1].value : null,
             day3: results[2].status === 'fulfilled' ? results[2].value : null,
         };
+    }
+
+    /**
+     * Fetch long-range seasonal outlook from Open-Meteo seasonal forecast API.
+     * Returns the raw API response or null on failure.
+     */
+    async function fetchSeasonalForecast(lat, lon) {
+        const units = useFahrenheit ? 'fahrenheit' : 'celsius';
+        const precU = useFahrenheit ? 'inch' : 'mm';
+        const params = new URLSearchParams({
+            latitude: lat, longitude: lon,
+            monthly: [
+                'temperature_2m_max', 'temperature_2m_min',
+                'precipitation_sum', 'wind_speed_10m_max'
+            ].join(','),
+            temperature_unit: units,
+            precipitation_unit: precU,
+            timezone: 'auto',
+            forecast_months: 6,
+        });
+        try {
+            const resp = await fetch(`https://seasonal-api.open-meteo.com/v1/seasonal?${params}`);
+            if (!resp.ok) return null;
+            return resp.json();
+        } catch { return null; }
+    }
+
+    /**
+     * Process raw Open-Meteo seasonal forecast data into monthly outlook objects.
+     * Averages ensemble members when present (keys follow pattern variable_memberNN).
+     */
+    function processSeasonalForecast(seasonal) {
+        if (!seasonal?.monthly?.time?.length) return null;
+        const m = seasonal.monthly;
+        const times = m.time;
+
+        // Compute ensemble mean for a given base variable name
+        function ensembleMean(varName) {
+            const memberKeys = Object.keys(m).filter(k => k.startsWith(varName + '_member'));
+            if (memberKeys.length) {
+                return times.map((_, i) => {
+                    const vals = memberKeys.map(k => m[k][i]).filter(v => v != null);
+                    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+                });
+            }
+            return m[varName] ? [...m[varName]] : null;
+        }
+
+        const hiArr = ensembleMean('temperature_2m_max');
+        const loArr = ensembleMean('temperature_2m_min');
+        const precipArr = ensembleMean('precipitation_sum');
+        const windArr = ensembleMean('wind_speed_10m_max');
+        const windU = useFahrenheit ? 'mph' : 'km/h';
+
+        return times.map((t, i) => {
+            // Open-Meteo seasonal API returns 'YYYY-MM' format; handle both that
+            // and 'YYYY-MM-DD' gracefully by taking only the first 7 characters.
+            const monthStr = String(t).slice(0, 7);
+            const dt = new Date(monthStr + '-01T12:00:00');
+            return {
+                month: !isNaN(dt)
+                    ? dt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                    : monthStr,
+                hi: hiArr?.[i] != null ? fmtTemp(hiArr[i]) : '--',
+                lo: loArr?.[i] != null ? fmtTemp(loArr[i]) : '--',
+                hiRaw: hiArr?.[i] ?? null,
+                loRaw: loArr?.[i] ?? null,
+                precip: precipArr?.[i] != null
+                    ? `${precipArr[i].toFixed(1)} ${useFahrenheit ? 'in' : 'mm'}`
+                    : '--',
+                wind: windArr?.[i] != null
+                    ? `${Math.round(windArr[i])} ${windU}`
+                    : '--',
+            };
+        });
     }
 
     /**
@@ -627,7 +717,7 @@ const WeatherAPI = (() => {
 
         // nearbyCities → Regional Obs/Forecast slides (position-dependent)
         // travelCities → Travel Forecast slide (fixed well-known cities)
-        const [raw, aq, alerts, cf, nearbyCities, travelCities, spcRaw] = await Promise.all([
+        const [raw, aq, alerts, cf, nearbyCities, travelCities, spcRaw, seasonalRaw] = await Promise.all([
             fetchWeather(currentLat, currentLon),
             fetchAirQuality(currentLat, currentLon),
             fetchAlerts(currentLat, currentLon),
@@ -639,6 +729,7 @@ const WeatherAPI = (() => {
                 typeof DEFAULT_TRAVEL_CITIES !== 'undefined' ? DEFAULT_TRAVEL_CITIES : []
             ).catch(() => []),
             fetchSPCOutlook().catch(() => ({ day1: null, day2: null, day3: null })),
+            fetchSeasonalForecast(currentLat, currentLon).catch(() => null),
         ]);
 
         weatherData = processData(raw, aq);
@@ -646,6 +737,7 @@ const WeatherAPI = (() => {
         weatherData.nearbyCities = nearbyCities;
         weatherData.travelCities = travelCities;
         weatherData.spcOutlook = processSPCOutlook(spcRaw, currentLat, currentLon);
+        weatherData.seasonal = processSeasonalForecast(seasonalRaw);
         alertsData = alerts;
         return { weather: weatherData, alerts: alertsData };
     }

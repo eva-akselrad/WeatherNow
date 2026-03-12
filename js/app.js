@@ -73,6 +73,7 @@
             { id: 'slide-radar', display: 'radar', label: 'RADAR' },
             { id: 'slide-alerts', display: 'alerts', label: 'ALERTS' },
             { id: 'slide-customforecast', display: 'customforecast', label: 'CUSTOM FORECAST' },
+            { id: 'slide-seasonal', display: 'seasonal', label: 'SEASONAL OUTLOOK' },
         ];
 
         slideIds = allSlides.filter(s => active.includes(s.display));
@@ -107,6 +108,7 @@
         'slide-extended':     { id: 'extended-container', dir: 'y' },
         'slide-observations': { id: 'obs-grid',           dir: 'y' },
         'slide-alerts':       { id: 'alerts-container',   dir: 'y' },
+        'slide-seasonal':     { id: 'seasonal-container', dir: 'y' },
         // travel, regional-obs, regional-fcst, spc all use fixed or map layouts
         // that manage their own sizing — no autoscroll needed
     };

@@ -78,6 +78,7 @@
                 <label><input type="checkbox" data-display="radar" checked /> Radar</label>
                 <label><input type="checkbox" data-display="alerts" checked /> Severe Alerts</label>
                 <label><input type="checkbox" data-display="customforecast" checked /> Custom Forecast</label>
+                <label><input type="checkbox" data-display="seasonal" checked /> Seasonal Outlook</label>
             </div>
         </section>
 
@@ -510,6 +511,15 @@
             <!-- SPC Outlook -->
             <div class="slide hidden slide-no-pad" id="slide-spc" data-display="spc">
                 <div id="spc-chart" class="ws4k-spc-layout"></div>
+            </div>
+
+            <!-- Seasonal Outlook -->
+            <div class="slide hidden" id="slide-seasonal" data-display="seasonal">
+                <div class="slide-header">
+                    <span class="slide-title">Seasonal Outlook</span>
+                    <span class="slide-badge open-meteo">6-MONTH</span>
+                </div>
+                <div id="seasonal-container" class="seasonal-container"></div>
             </div>
 
         </div><!-- /slide-viewport -->
