@@ -203,12 +203,12 @@ export async function onRequest({ request, env }) {
     if (path === '/api/announce' && method === 'POST') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
         const { text = '', title = '', type = 'info', display = 'banner',
-            duration = 0, tts = false, push = false } = await request.json();
+            duration = 0, tts = false, push = false, targeting = { mode: 'all' } } = await request.json();
         if (!text.trim()) return json({ error: 'text is required' }, 400);
 
         const msgs = await getMessages(env);
         const nextId = msgs.length ? Math.max(...msgs.map(m => m.id)) + 1 : 1;
-        const msg = { id: nextId, text: text.trim(), title: title.trim(), type, display, duration, tts: !!tts, push: !!push, created: Date.now() };
+        const msg = { id: nextId, text: text.trim(), title: title.trim(), type, display, duration, tts: !!tts, push: !!push, targeting, created: Date.now() };
         msgs.push(msg);
         await saveMessages(env, msgs);
 

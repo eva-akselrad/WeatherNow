@@ -3,7 +3,7 @@
 A modern, real-time weather client inspired by WeatherStar 4000. Vanilla HTML/CSS/JS, NOAA weather data, RainViewer animated radar, background music with TTS ducking, severe weather alerts, and a full admin control panel.
 
 ---
-> ⚠️ **Disclaimer:** S.H.E.L.L.Y. is an **unofficial**, hobbyist weather display project. It is **not** affiliated with, endorsed by, or a replacement for the National Weather Service (NWS), NOAA, or any official emergency management agency. **Do not rely solely on S.H.E.L.L.Y. for life-safety decisions.** Always monitor official sources (weather.gov, your local NWS office, Wireless Emergency Alerts, NOAA Weather Radio, and local emergency management) during severe weather or other emergencies. The admin Armageddon mode is intended for informational display purposes only and is **not** a substitute for official emergency alert systems (EAS/WEA).
+> ⚠️ **Disclaimer:** S.H.E.L.L.Y. is an **unofficial**, hobbyist weather display project. It is **not** affiliated with, endorsed by, or a replacement for the National Weather Service (NWS), NOAA, or any official emergency management agency. **Do not rely solely on S.H.E.L.L.Y. for life-safety decisions.** Always monitor official sources (weather.gov, your local NWS office, Wireless Emergency Alerts, NOAA Weather Radio, and local emergency management) during severe weather or other emergencies. The admin E.S.T.O.P. mode is intended for informational display purposes only and is **not** a substitute for official emergency alert systems (EAS/WEA).
 
 ---
 ## ✨ Features
@@ -176,11 +176,12 @@ Send real-time messages to every connected display.
 | **Duration** | Manual dismiss or auto-dismiss after 15 s – 10 min |
 | **TTS** | Speak the message aloud on the display via text-to-speech |
 | **Push** | Send a push notification to all subscribed devices simultaneously |
+| **Location Targeting** | Restrict who sees the message: all viewers, map radius, ZIP codes, or counties |
 | **Security** | Password set via `ADMIN_PASSWORD` env var |
 
-### ☢️ Armageddon Mode
+### 🛑 E.S.T.O.P. (Exigent Site Take-down Operational Procedure)
 
-Push a system-wide, **undismissable** full-screen alert to every connected display instantly. Viewers cannot close it — only the admin can deactivate it.
+Push a system-wide, **undismissable** full-screen alert to every connected display instantly. Viewers cannot close it — only the admin can deactivate it. An EAS-style alarm sound plays on all displays and background music is automatically paused when E.S.T.O.P. is activated.
 
 #### Emergency types
 

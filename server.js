@@ -162,10 +162,10 @@ app.get('/api/verify', (req, res) => {
 });
 
 // ── POST /api/announce ─────────────────────────────────────────
-// Body: { password, text, type, display, duration, title, tts, push }
+// Body: { password, text, type, display, duration, title, tts, push, targeting }
 app.post('/api/announce', async (req, res) => {
     if (!checkAuth(req, res)) return;
-    const { text, type = 'info', display = 'banner', duration = 0, title = '', tts = false, push = false } = req.body;
+    const { text, type = 'info', display = 'banner', duration = 0, title = '', tts = false, push = false, targeting = { mode: 'all' } } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: 'text required' });
 
     const msg = {
@@ -177,6 +177,7 @@ app.post('/api/announce', async (req, res) => {
         duration,
         tts: !!tts,
         push: !!push,
+        targeting,
         created: Date.now()
     };
     messages.push(msg);
