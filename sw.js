@@ -28,6 +28,7 @@ const APP_SHELL = [
 const CACHE_EXTERNAL_PATTERNS = [
     'api.weather.gov',
     'api.open-meteo.com',
+    'archive-api.open-meteo.com',
     'air-quality-api.open-meteo.com',
     'nominatim.openstreetmap.org',
     'fonts.googleapis.com',
