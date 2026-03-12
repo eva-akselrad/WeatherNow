@@ -26,6 +26,7 @@ const KV_SUBSCRIPTIONS_KEY = 'push_subscriptions';
 const KV_RELEASE_NOTES_KEY = 'release_notes';
 const KV_CUSTOM_FORECAST_KEY = 'custom_forecast';
 const KV_ARMAGEDDON_KEY = 'armageddon';
+const KV_MSG_SEQ_KEY = 'msg_next_id'; // persistent counter — never resets on message delete
 
 // ── Helpers ────────────────────────────────────────────────────────
 async function getMessages(env) {
@@ -207,7 +208,12 @@ export async function onRequest({ request, env }) {
         if (!text.trim()) return json({ error: 'text is required' }, 400);
 
         const msgs = await getMessages(env);
-        const nextId = msgs.length ? Math.max(...msgs.map(m => m.id)) + 1 : 1;
+        // Use a persistent KV counter so IDs never recycle when messages are deleted.
+        // Fall back to max(existing)+1 for legacy deployments where the counter is absent.
+        const stored = parseInt(await env.WEATHERNOW_KV.get(KV_MSG_SEQ_KEY) || '0', 10);
+        const maxExisting = msgs.length ? Math.max(...msgs.map(m => m.id)) : 0;
+        const nextId = Math.max(stored, maxExisting) + 1;
+        await env.WEATHERNOW_KV.put(KV_MSG_SEQ_KEY, String(nextId));
         const msg = { id: nextId, text: text.trim(), title: title.trim(), type, display, duration, tts: !!tts, push: !!push, targeting, created: Date.now() };
         msgs.push(msg);
         await saveMessages(env, msgs);

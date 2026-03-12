@@ -9,7 +9,6 @@ const Announcements = (() => {
     const POLL_MS = 10000;   // 10 s — was two separate 5 s loops (24 req/min → 6 req/min)
     let armageddonActive = false;
     let armageddonVersion = null; // tracks activatedAt to detect updates while active
-    const shownMsgIds = new Set(); // message IDs already displayed — prevents re-showing on re-poll
     let musicWasPlaying = false;  // tracks whether music was playing before ESTOP muted it
     let estopTtsTimer = null;     // pending TTS timeout — cancelled if ESTOP is cleared early
 
@@ -163,16 +162,12 @@ const Announcements = (() => {
 
             // Handle new messages (filtered by location targeting)
             messages.forEach(msg => {
-                // Already shown — just keep lastId current so it stays out of future polls
-                if (shownMsgIds.has(msg.id)) {
-                    lastId = Math.max(lastId, msg.id);
-                    return;
-                }
-                // Location check: skip WITHOUT advancing lastId so the message is re-evaluated
-                // on the next poll once the viewer's location has finished loading
+                // lastId only advances for messages that are actually shown.
+                // Location-filtered messages (isMessageForMe → false) are skipped without
+                // advancing lastId so they're re-evaluated on future polls as location loads.
+                // mode:'all' and unknown-location always return true from isMessageForMe.
                 if (!isMessageForMe(msg)) return;
                 lastId = Math.max(lastId, msg.id);
-                shownMsgIds.add(msg.id);
                 playAlertSound(msg.type);
                 show(msg);
                 speakMessage(msg);
