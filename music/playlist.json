@@ -4,59 +4,73 @@
   "tracks": [
     {
       "title": "Ashtray On The Windowsill(1)",
-      "file": "music/Ashtray On The Windowsill(1).mp3"
+      "file": "music/Ashtray On The Windowsill(1).mp3",
+      "weather": "rainy"
     },
     {
       "title": "Ashtray On The Windowsill",
-      "file": "music/Ashtray On The Windowsill.mp3"
+      "file": "music/Ashtray On The Windowsill.mp3",
+      "weather": "rainy"
     },
     {
       "title": "Catch the Sun",
-      "file": "music/Catch the Sun.mp3"
+      "file": "music/Catch the Sun.mp3",
+      "weather": "clear"
     },
     {
       "title": "Clouds in 3 4 Time(1)",
-      "file": "music/Clouds in 3_4 Time(1).mp3"
+      "file": "music/Clouds in 3_4 Time(1).mp3",
+      "weather": "cloudy"
     },
     {
       "title": "Clouds in 3 4 Time(2)",
-      "file": "music/Clouds in 3_4 Time(2).mp3"
+      "file": "music/Clouds in 3_4 Time(2).mp3",
+      "weather": "cloudy"
     },
     {
       "title": "Crisp day",
-      "file": "music/Crisp day.mp3"
+      "file": "music/Crisp day.mp3",
+      "weather": "clear"
     },
     {
       "title": "Cumulus Commute(1)",
-      "file": "music/Cumulus Commute(1).mp3"
+      "file": "music/Cumulus Commute(1).mp3",
+      "weather": "cloudy"
     },
     {
       "title": "Cumulus Commute(2)",
-      "file": "music/Cumulus Commute(2).mp3"
+      "file": "music/Cumulus Commute(2).mp3",
+      "weather": "cloudy"
     },
     {
       "title": "Cumulus Commute(3)",
-      "file": "music/Cumulus Commute(3).mp3"
+      "file": "music/Cumulus Commute(3).mp3",
+      "weather": "cloudy"
     },
     {
       "title": "Cumulus Commute",
-      "file": "music/Cumulus Commute.mp3"
+      "file": "music/Cumulus Commute.mp3",
+      "weather": "cloudy"
     },
     {
       "title": "Midnight Reverie(1)",
-      "file": "music/Midnight Reverie(1).mp3"
+      "file": "music/Midnight Reverie(1).mp3",
+      "weather": "clear"
     },
     {
       "title": "Midnight Reverie",
-      "file": "music/Midnight Reverie.mp3"
+      "file": "music/Midnight Reverie.mp3",
+      "weather": "clear"
     },
     {
       "title": "Rolling Clouds",
-      "file": "music/Rolling Clouds.mp3"
+      "file": "music/Rolling Clouds.mp3",
+      "weather": "cloudy"
     },
     {
       "title": "Strong Breeze",
-      "file": "music/Strong Breeze.mp3"
+      "file": "music/Strong Breeze.mp3",
+      "weather": "windy"
     }
   ]
 }

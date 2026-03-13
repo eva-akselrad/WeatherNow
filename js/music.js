@@ -12,6 +12,51 @@ const MusicPlayer = (() => {
     let volume = 0.4;
     let isDucked = false;
     let normalVolume = 0.4;
+    let weatherCondition = null;    // current weather category (string or null)
+    let weatherMusicEnabled = true; // prefer weather-matched tracks when picking next
+
+    // ── Weather category helpers ──────────────────────────────────
+    // Map Open-Meteo WMO weather codes to music mood categories.
+    const WEATHER_EMOJIS = {
+        clear:   '☀️',
+        cloudy:  '⛅',
+        rainy:   '🌧',
+        stormy:  '⛈',
+        snowy:   '❄️',
+        foggy:   '🌫',
+        windy:   '💨',
+    };
+
+    function wmoToCategory(rawCode, windRaw) {
+        if (rawCode === 0 || rawCode === 1)                          return 'clear';
+        if (rawCode === 2 || rawCode === 3)                          return 'cloudy';
+        if (rawCode === 45 || rawCode === 48)                        return 'foggy';
+        if (rawCode >= 71 && rawCode <= 77)                          return 'snowy';
+        if (rawCode === 95 || rawCode === 96 || rawCode === 99)      return 'stormy';
+        if (rawCode >= 51 && rawCode <= 67)                          return 'rainy';
+        if (rawCode >= 80 && rawCode <= 82)                          return 'rainy';
+        if (rawCode === 85 || rawCode === 86)                        return 'snowy';
+        if (windRaw != null && windRaw >= 25)                        return 'windy';
+        return null;
+    }
+
+    // Auto-tag a track from its name when no explicit tag is set.
+    function autoTag(name) {
+        const s = name.toLowerCase();
+        if (/thunder|storm|lightning|hurric|squall/.test(s))        return 'stormy';
+        if (/rain|drizzle|shower|downpour|puddle|wet/.test(s))      return 'rainy';
+        if (/snow|winter|frost|blizzard|ice|icy|frozen|sleet/.test(s)) return 'snowy';
+        if (/fog|mist|haze|misty/.test(s))                          return 'foggy';
+        if (/wind|breeze|breezy|gust|blustery|gale/.test(s))        return 'windy';
+        if (/cloud|overcast|grey|gray|cumul|nimb|stratus/.test(s))  return 'cloudy';
+        if (/sun|sunny|bright|clear|crisp|dawn|dusk|daylight|solar/.test(s)) return 'clear';
+        return null;
+    }
+
+    // Return the weather category for a track (from playlist tag or auto-tag).
+    function trackWeather(track) {
+        return track.weather || autoTag(track.name || '');
+    }
 
     const audio = document.getElementById('bg-audio');
     const playBtn = document.getElementById('mc-play');
@@ -35,13 +80,14 @@ const MusicPlayer = (() => {
             if (!resp.ok) return [];
             const data = await resp.json();
             if (!data.tracks?.length) return [];
-            // Build tracks from server-relative URLs
+            // Build tracks from server-relative URLs, preserving the weather tag
             const serverTracks = data.tracks
                 .filter(t => t.file)
                 .map(t => ({
                     name: t.title || t.file.replace(/.*\//, '').replace(/\\.[^.]+$/, ''),
                     url: t.file,   // relative URL, served by web server
-                    isServer: true
+                    isServer: true,
+                    weather: t.weather || null
                 }));
             return serverTracks;
         } catch { return []; }
@@ -118,9 +164,13 @@ const MusicPlayer = (() => {
         if (!trackList) return;
         trackList.innerHTML = '';
         tracks.forEach((t, i) => {
+            const wCat = trackWeather(t);
+            const emoji = wCat ? (WEATHER_EMOJIS[wCat] || '') : '';
+            const isMatch = weatherMusicEnabled && wCat && wCat === weatherCondition;
             const div = document.createElement('div');
-            div.className = 'track-item' + (i === currentIdx ? ' playing' : '');
-            div.textContent = `${i + 1}. ${t.name}`;
+            div.className = 'track-item' + (i === currentIdx ? ' playing' : '') + (isMatch ? ' weather-match' : '');
+            div.textContent = `${emoji ? emoji + ' ' : ''}${i + 1}. ${t.name}`;
+            div.title = wCat ? `Weather: ${wCat}` : '';
             div.addEventListener('click', () => { loadTrack(i); play(); });
             trackList.appendChild(div);
         });
@@ -129,7 +179,10 @@ const MusicPlayer = (() => {
     function updateTrackList() {
         const items = trackList?.querySelectorAll('.track-item');
         items?.forEach((item, i) => {
+            const wCat = trackWeather(tracks[i]);
+            const isMatch = weatherMusicEnabled && wCat && wCat === weatherCondition;
             item.classList.toggle('playing', i === currentIdx);
+            item.classList.toggle('weather-match', !!isMatch);
         });
     }
 
@@ -181,15 +234,32 @@ const MusicPlayer = (() => {
         play();
     }
 
-    function next() {
-        if (!tracks.length) return;
+    // Pick the next index, preferring a weather-matched track when possible.
+    function pickNextIndex() {
+        if (!tracks.length) return 0;
         if (isShuffle && tracks.length > 1) {
+            // If weather-music is on and a condition is set, prefer matching tracks
+            if (weatherMusicEnabled && weatherCondition) {
+                const matchingIndices = tracks
+                    .map((t, i) => ({ i, cat: trackWeather(t) }))
+                    .filter(({ i, cat }) => i !== currentIdx && cat === weatherCondition)
+                    .map(({ i }) => i);
+                if (matchingIndices.length > 0) {
+                    return matchingIndices[Math.floor(Math.random() * matchingIndices.length)];
+                }
+            }
+            // Fall back to normal shuffle
+            if (tracks.length === 1) return 0;
             let newIdx = currentIdx;
             while (newIdx === currentIdx) newIdx = Math.floor(Math.random() * tracks.length);
-            currentIdx = newIdx;
-        } else {
-            currentIdx = (currentIdx + 1) % tracks.length;
+            return newIdx;
         }
+        return (currentIdx + 1) % tracks.length;
+    }
+
+    function next() {
+        if (!tracks.length) return;
+        currentIdx = pickNextIndex();
         loadTrack(currentIdx);
         play();
     }
@@ -238,5 +308,29 @@ const MusicPlayer = (() => {
         if (volumeSlider) volumeSlider.value = val * 100;
     }
 
-    return { init, play, pause, next, prev, togglePlay, duck, unduck, setVolume, get isPlaying() { return isPlaying; } };
+    // ── Weather-aware music selection ─────────────────────────────
+    // Called from app.js after every weather data fetch.
+    function setWeatherCondition(conditions) {
+        const prev = weatherCondition;
+        weatherCondition = conditions ? wmoToCategory(conditions.rawCode, conditions.windRaw) : null;
+        if (weatherCondition !== prev) {
+            // Refresh track list highlights to reflect new condition
+            buildTrackList();
+            if (weatherCondition) {
+                const emoji = WEATHER_EMOJIS[weatherCondition] || '';
+                console.log(`🎵 Weather music: ${emoji} ${weatherCondition}`);
+            }
+        }
+    }
+
+    function setWeatherMusicEnabled(val) {
+        weatherMusicEnabled = val;
+        buildTrackList();
+    }
+
+    return {
+        init, play, pause, next, prev, togglePlay, duck, unduck, setVolume,
+        setWeatherCondition, setWeatherMusicEnabled,
+        get isPlaying() { return isPlaying; }
+    };
 })();

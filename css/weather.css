@@ -457,6 +457,15 @@ body {
     font-weight: 600;
 }
 
+.track-item.weather-match {
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
+    border-left: 2px solid var(--accent);
+}
+
+.track-item.playing.weather-match {
+    border-left: 2px solid var(--accent);
+}
+
 .music-folder-row {
     margin-bottom: 10px;
 }

@@ -13,7 +13,6 @@ const APP_SHELL = [
     '/css/weather.css',
     '/js/settings.js',
     '/js/music.js',
-    '/js/ambient.js',
     '/js/weather.js',
     '/js/alerts.js',
     '/js/radar.js',
