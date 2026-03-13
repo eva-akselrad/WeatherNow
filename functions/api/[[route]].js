@@ -26,6 +26,8 @@ const KV_SUBSCRIPTIONS_KEY = 'push_subscriptions';
 const KV_RELEASE_NOTES_KEY = 'release_notes';
 const KV_CUSTOM_FORECAST_KEY = 'custom_forecast';
 const KV_ARMAGEDDON_KEY = 'armageddon';
+const KV_MSG_SEQ_KEY = 'msg_next_id'; // persistent counter — never resets on message delete
+const KV_ACKS_KEY = 'msg_acks'; // { [msgId]: [visitorId, ...] }
 
 // ── Helpers ────────────────────────────────────────────────────────
 async function getMessages(env) {
@@ -56,6 +58,13 @@ async function getCustomForecasts(env) {
 }
 async function saveCustomForecasts(env, forecasts) {
     await env.WEATHERNOW_KV.put(KV_CUSTOM_FORECAST_KEY, JSON.stringify(forecasts));
+}
+
+async function getAcks(env) {
+    return (await env.WEATHERNOW_KV.get(KV_ACKS_KEY, 'json')) ?? {};
+}
+async function saveAcks(env, acks) {
+    await env.WEATHERNOW_KV.put(KV_ACKS_KEY, JSON.stringify(acks));
 }
 
 async function getArmageddonState(env) {
@@ -176,8 +185,26 @@ export async function onRequest({ request, env }) {
     // ── Messages ────────────────────────────────────────────────
     if (path === '/api/messages' && method === 'GET') {
         const since = parseInt(url.searchParams.get('since') ?? '0') || 0;
-        const msgs = await getMessages(env);
-        return json(msgs.filter(m => m.id > since));
+        const [msgs, acks] = await Promise.all([getMessages(env), getAcks(env)]);
+        return json(msgs.filter(m => m.id > since).map(m => ({
+            ...m,
+            ackCount: (acks[m.id] ?? []).length,
+        })));
+    }
+
+    // ── Poll (combined messages + armageddon in one request) ────
+    if (path === '/api/poll' && method === 'GET') {
+        const since = parseInt(url.searchParams.get('since') ?? '0') || 0;
+        const [msgs, armageddon] = await Promise.all([getMessages(env), getArmageddonState(env)]);
+        let armState = armageddon;
+        if (armState?.expiresAt && Date.now() > armState.expiresAt) {
+            await saveArmageddonState(env, null);
+            armState = null;
+        }
+        return json({
+            messages: msgs.filter(m => m.id > since),
+            armageddon: armState ? { active: true, ...armState } : { active: false },
+        });
     }
 
     // ── Poll (combined messages + armageddon in one request) ────
@@ -203,12 +230,17 @@ export async function onRequest({ request, env }) {
     if (path === '/api/announce' && method === 'POST') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
         const { text = '', title = '', type = 'info', display = 'banner',
-            duration = 0, tts = false, push = false } = await request.json();
+            duration = 0, tts = false, push = false, targeting = { mode: 'all' } } = await request.json();
         if (!text.trim()) return json({ error: 'text is required' }, 400);
 
         const msgs = await getMessages(env);
-        const nextId = msgs.length ? Math.max(...msgs.map(m => m.id)) + 1 : 1;
-        const msg = { id: nextId, text: text.trim(), title: title.trim(), type, display, duration, tts: !!tts, push: !!push, created: Date.now() };
+        // Use a persistent KV counter so IDs never recycle when messages are deleted.
+        // Fall back to max(existing)+1 for legacy deployments where the counter is absent.
+        const stored = parseInt(await env.WEATHERNOW_KV.get(KV_MSG_SEQ_KEY) || '0', 10);
+        const maxExisting = msgs.length ? Math.max(...msgs.map(m => m.id)) : 0;
+        const nextId = Math.max(stored, maxExisting) + 1;
+        await env.WEATHERNOW_KV.put(KV_MSG_SEQ_KEY, String(nextId));
+        const msg = { id: nextId, text: text.trim(), title: title.trim(), type, display, duration, tts: !!tts, push: !!push, targeting, created: Date.now() };
         msgs.push(msg);
         await saveMessages(env, msgs);
 
@@ -231,15 +263,36 @@ export async function onRequest({ request, env }) {
     if (oneMatch && method === 'DELETE') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
         const id = parseInt(oneMatch[1]);
-        const msgs = await getMessages(env);
+        const [msgs, acks] = await Promise.all([getMessages(env), getAcks(env)]);
         await saveMessages(env, msgs.filter(m => m.id !== id));
+        delete acks[id];
+        await saveAcks(env, acks);
         return json({ ok: true });
     }
 
     if (path === '/api/messages' && method === 'DELETE') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
-        await saveMessages(env, []);
+        await Promise.all([saveMessages(env, []), saveAcks(env, {})]);
         return json({ ok: true });
+    }
+
+    // ── Acknowledge ──────────────────────────────────────────────
+    // Public – no admin auth required. Body: { visitorId: string }
+    const ackMatch = path.match(/^\/api\/messages\/(\d+)\/acknowledge$/);
+    if (ackMatch && method === 'POST') {
+        const id = parseInt(ackMatch[1]);
+        let body;
+        try { body = await request.json(); } catch { return json({ error: 'invalid JSON body' }, 400); }
+        const { visitorId } = body;
+        if (!visitorId || typeof visitorId !== 'string' || visitorId.length > 128 || !/^[\w\-]+$/.test(visitorId)) {
+            return json({ error: 'visitorId must be alphanumeric with optional hyphens, max 128 characters' }, 400);
+        }
+        const [msgs, acks] = await Promise.all([getMessages(env), getAcks(env)]);
+        if (!msgs.find(m => m.id === id)) return json({ error: 'not found' }, 404);
+        if (!Array.isArray(acks[id])) acks[id] = [];
+        if (!acks[id].includes(visitorId)) acks[id].push(visitorId);
+        await saveAcks(env, acks);
+        return json({ ok: true, ackCount: acks[id].length });
     }
 
     // ── Push ────────────────────────────────────────────────────

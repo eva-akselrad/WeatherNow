@@ -136,6 +136,7 @@ const Displays = (() => {
               <div class="hourly-temp">${h.temp}</div>
               <div class="hourly-desc">${h.desc}</div>
               ${h.precip ? `<div class="hourly-precip">${h.precip}</div>` : ''}
+              ${h.humidity ? `<div class="hourly-humidity">💧 ${h.humidity}</div>` : ''}
               ${h.wind ? `<div class="hourly-wind">💨 ${h.wind}</div>` : ''}
             `;
             container.appendChild(card);
@@ -147,6 +148,17 @@ const Displays = (() => {
         const container = el('extended-container');
         if (!container) return;
         container.innerHTML = '';
+
+        // Trend badge
+        const trend = data.extendedTrend;
+        if (trend) {
+            const badge = document.createElement('div');
+            badge.className = `extended-trend-badge trend-${trend.dir}`;
+            const sign = trend.diff > 0 ? '+' : '';
+            badge.textContent = `${trend.symbol} ${trend.label} Trend${trend.diff !== 0 ? ` (${sign}${trend.diff}°)` : ''}`;
+            container.appendChild(badge);
+        }
+
         (data.daily || []).forEach(d => {
             const card = document.createElement('div');
             card.className = 'day-card' + (d.isToday ? ' today' : '');
@@ -206,6 +218,75 @@ const Displays = (() => {
         txt('alm-daylength', a.dayLength);
         txt('alm-solarnoon', a.solarNoon);
         txt('alm-dayofyear', a.dayOfYear);
+    }
+
+    // ── On This Day – Climate History ──────────────────────────────
+    function renderClimateHistory(data) {
+        const container = el('climate-history-container');
+        if (!container) return;
+
+        const ch = data.climateHistory;
+
+        if (!ch) {
+            container.innerHTML = `
+              <div class="ch-unavailable">
+                <div class="ch-unavail-icon">📅</div>
+                <div class="ch-unavail-text">Historical climate data is unavailable for this location.</div>
+              </div>`;
+            return;
+        }
+
+        const dateLabel = el('climate-history-date');
+        if (dateLabel) dateLabel.textContent = ch.date;
+
+        const yearsLabel = el('climate-history-years');
+        if (yearsLabel) yearsLabel.textContent = ch.years > 0
+            ? `${ch.startYear}–${new Date().getFullYear() - 1} (${ch.years} yr)`
+            : '';
+
+        container.innerHTML = `
+          <div class="ch-section">
+            <div class="ch-section-header">🌡 Temperature Records</div>
+            <div class="ch-grid">
+              <div class="ch-record-card ch-record-hot">
+                <div class="ch-record-label">Record High</div>
+                <div class="ch-record-value">${esc(ch.recordHigh?.temp ?? '--')}</div>
+                ${ch.recordHigh?.year ? `<div class="ch-record-year">${ch.recordHigh.year}</div>` : ''}
+              </div>
+              <div class="ch-record-card ch-record-cold">
+                <div class="ch-record-label">Record Low</div>
+                <div class="ch-record-value">${esc(ch.recordLow?.temp ?? '--')}</div>
+                ${ch.recordLow?.year ? `<div class="ch-record-year">${ch.recordLow.year}</div>` : ''}
+              </div>
+              <div class="ch-avg-card">
+                <div class="ch-avg-row">
+                  <span class="ch-avg-label">Avg High</span>
+                  <span class="ch-avg-value ch-avg-hot">${esc(ch.avgHigh)}</span>
+                </div>
+                <div class="ch-avg-row">
+                  <span class="ch-avg-label">Avg Low</span>
+                  <span class="ch-avg-value ch-avg-cold">${esc(ch.avgLow)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ch-section">
+            <div class="ch-section-header">🌧 Precipitation Records</div>
+            <div class="ch-grid">
+              <div class="ch-record-card ch-record-precip">
+                <div class="ch-record-label">Record Precip</div>
+                <div class="ch-record-value ch-precip-val">${esc(ch.recordPrecip?.amount ?? 'None on record')}</div>
+                ${ch.recordPrecip?.year ? `<div class="ch-record-year">${ch.recordPrecip.year}</div>` : ''}
+              </div>
+              <div class="ch-avg-card ch-avg-card-full">
+                <div class="ch-avg-row">
+                  <span class="ch-avg-label">Avg Precip</span>
+                  <span class="ch-avg-value">${esc(ch.avgPrecip)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
     }
 
     // ── Air Quality ────────────────────────────────────────────────
@@ -625,6 +706,7 @@ const Displays = (() => {
         renderExtended(weatherData);
         renderPrecipChart(weatherData);
         renderAlmanac(weatherData);
+        renderClimateHistory(weatherData);
         renderAirQuality(weatherData);
         renderRadar(lat, lon);
         renderAlerts(alerts, onTTS);
@@ -638,7 +720,7 @@ const Displays = (() => {
 
     return {
         renderAll, renderConditions, renderObservations, renderHourly, renderExtended,
-        renderPrecipChart, renderAlmanac, renderAirQuality,
+        renderPrecipChart, renderAlmanac, renderAirQuality, renderClimateHistory,
         renderRadar, renderAlerts, renderCustomForecast, updateTicker,
         renderTravel, renderRegionalObs, renderRegionalFcst, renderSPCOutlook,
         onRegionalObsVisible, onRegionalFcstVisible,

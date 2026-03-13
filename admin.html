@@ -452,6 +452,35 @@
             color: var(--danger);
         }
 
+        .amsg-ack-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .amsg-ack-bar {
+            flex: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .amsg-ack-bar-fill {
+            height: 100%;
+            background: #22c55e;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        .amsg-ack-label {
+            font-size: .65rem;
+            color: var(--muted);
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
         .no-msgs {
             color: var(--muted);
             font-size: .85rem;
@@ -954,6 +983,51 @@
                 </div>
             </div>
 
+            <!-- Location Targeting -->
+            <div style="margin-bottom:16px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <span style="font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">📍 Target Audience</span>
+                    <span id="msg-target-badge" class="fc-target-badge">All Viewers</span>
+                </div>
+                <p style="font-size:.72rem;color:var(--muted);margin-bottom:10px">Restrict who sees this message by location, or leave as All Viewers to show everywhere.</p>
+                <div class="fc-target-tabs">
+                    <div class="msg-target-tab fc-target-tab active" data-msgmode="all">🌍 All Viewers</div>
+                    <div class="msg-target-tab fc-target-tab" data-msgmode="radius">📍 Map Area</div>
+                    <div class="msg-target-tab fc-target-tab" data-msgmode="zips">🏷 ZIP Codes</div>
+                    <div class="msg-target-tab fc-target-tab" data-msgmode="counties">🗺 Counties</div>
+                </div>
+                <!-- All -->
+                <div class="fc-target-panel" id="msg-target-all">
+                    <div style="font-size:.82rem;color:var(--muted)">This message will be visible to <strong style="color:var(--text)">all viewers</strong> regardless of their location.</div>
+                </div>
+                <!-- Radius -->
+                <div class="fc-target-panel" id="msg-target-radius" style="display:none">
+                    <p style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Click the map to place a center point, then set the radius in miles.</p>
+                    <div id="msg-radius-map" style="height:200px;border-radius:6px;border:1px solid var(--border);margin-bottom:12px"></div>
+                    <div class="fc-target-grid">
+                        <div class="fc-field"><label>Center Lat</label><input type="number" id="msg-radius-lat" step="0.0001" placeholder="e.g. 37.77" /></div>
+                        <div class="fc-field"><label>Center Lon</label><input type="number" id="msg-radius-lon" step="0.0001" placeholder="e.g. -122.42" /></div>
+                        <div class="fc-field"><label>Radius (miles)</label><input type="number" id="msg-radius-mi" min="1" max="1000" placeholder="e.g. 50" /></div>
+                    </div>
+                </div>
+                <!-- ZIPs -->
+                <div class="fc-target-panel" id="msg-target-zips" style="display:none">
+                    <div class="fc-field">
+                        <label>ZIP Codes — comma-separated</label>
+                        <input type="text" id="msg-zip-input" placeholder="e.g. 90210, 10001, 60601" />
+                    </div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:8px">Message will only appear for viewers whose location reverse-geocodes to one of these ZIP codes.</div>
+                </div>
+                <!-- Counties -->
+                <div class="fc-target-panel" id="msg-target-counties" style="display:none">
+                    <div class="fc-field">
+                        <label>Counties — comma-separated (include state abbreviation)</label>
+                        <input type="text" id="msg-county-input" placeholder="e.g. Jefferson County AL, Cook County IL" />
+                    </div>
+                    <div style="font-size:.72rem;color:var(--muted);margin-top:8px">Message will show for viewers whose county matches any entry in this list.</div>
+                </div>
+            </div>
+
             <button class="send-btn" id="send-btn">📡 SEND ANNOUNCEMENT</button>
             <div id="send-feedback"></div>
         </div>
@@ -989,9 +1063,9 @@
             </div>
         </div>
 
-        <!-- Armageddon Mode -->
+        <!-- E.S.T.O.P. (Exigent Site Take-down Operational Procedure) -->
         <div class="card" id="armageddon-card" style="border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.05)">
-            <div class="card-title" style="color:#f87171">☢️ Armageddon Mode</div>
+            <div class="card-title" style="color:#f87171">🛑 E.S.T.O.P. <span style="font-size:.72rem;font-weight:400;letter-spacing:.03em">(Exigent Site Take-down Operational Procedure)</span></div>
             <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px">
                 Overrides the entire display with a full-screen message that <strong style="color:#f87171">cannot be dismissed by viewers</strong>.
                 Only the admin can deactivate it. Use for critical emergencies only.
@@ -1081,7 +1155,7 @@
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
                 <button class="send-btn" id="arm-activate-btn"
                     style="flex:1;background:linear-gradient(135deg,#dc2626,#991b1b)">
-                    ☢️ ACTIVATE ARMAGEDDON MODE
+                    🛑 ACTIVATE E.S.T.O.P.
                 </button>
                 <button class="clear-all-btn" id="arm-deactivate-btn" style="flex:none;display:none">
                     ✕ Deactivate
@@ -1090,11 +1164,11 @@
             <div id="arm-feedback" style="text-align:center;font-size:.82rem;margin-top:10px;min-height:18px"></div>
         </div>
 
-        <!-- Armageddon confirmation modal -->
+        <!-- E.S.T.O.P. confirmation modal -->
         <div id="arm-confirm-modal">
             <div class="arm-confirm-box">
-                <div class="arm-confirm-icon" id="arm-confirm-icon">☢️</div>
-                <div class="arm-confirm-title">ACTIVATE ARMAGEDDON?</div>
+                <div class="arm-confirm-icon" id="arm-confirm-icon">🛑</div>
+                <div class="arm-confirm-title">ACTIVATE E.S.T.O.P.?</div>
                 <div class="arm-confirm-body">
                     This will immediately override <strong style="color:#fff">all connected displays</strong>
                     with a full-screen emergency message. Viewers <strong style="color:#f87171">cannot dismiss it</strong>.
@@ -1107,7 +1181,7 @@
                 </div>
                 <div class="arm-confirm-btns">
                     <button id="arm-confirm-cancel">Cancel</button>
-                    <button id="arm-confirm-ok">☢️ ACTIVATE NOW</button>
+                    <button id="arm-confirm-ok">🛑 ACTIVATE NOW</button>
                 </div>
             </div>
         </div>
@@ -1265,6 +1339,7 @@
             const API = '/api';
             let adminPassword = '';
             let pollTimer = null;
+            let pushSubCount = 0;
 
             // ── Login ──────────────────────────────────────────────────────
             const loginScreen = document.getElementById('login-screen');
@@ -1300,6 +1375,8 @@
 
             let selectedType = 'info';
             let selectedDisplay = 'banner';
+            let msgTargetMode = 'all';
+            let msgRadiusMap = null, msgRadiusMarker = null, msgRadiusCircle = null;
 
             // ── Sent confirmation chime ────────────────────────────
             function playChime() {
@@ -1363,6 +1440,7 @@
                     if (btn) deleteForecast(parseInt(btn.dataset.fcDelete, 10));
                 });
                 initTargetingUI();
+                initMsgTargetingUI();
 
                 checkHealth();
                 loadMessages();
@@ -1393,7 +1471,8 @@
                             display: selectedDisplay,
                             duration: parseInt(document.getElementById('msg-duration').value),
                             tts: document.getElementById('msg-tts').checked,
-                            push: document.getElementById('msg-push').checked
+                            push: document.getElementById('msg-push').checked,
+                            targeting: getMsgTargetingData()
                         })
                     });
                     if (!r.ok) throw new Error();
@@ -1401,6 +1480,7 @@
                     feedback('✓ Sent!', '#22c55e');
                     document.getElementById('msg-text').value = '';
                     document.getElementById('msg-title').value = '';
+                    setMsgTargetingMode('all');
                     loadMessages();
                 } catch {
                     feedback('⚠ Failed to send.', '#ef4444');
@@ -1427,6 +1507,12 @@
                     const div = document.createElement('div');
                     div.className = 'active-msg';
                     const badge = { info: 'info', warning: 'warning', emergency: 'emergency' }[msg.type] || 'info';
+                    const ackCount = msg.ackCount || 0;
+                    const total = pushSubCount || 0;
+                    const pct = total > 0 ? Math.min(100, Math.round(ackCount / total * 100)) : 0;
+                    const ackLabel = total > 0 && ackCount <= total
+                        ? `${ackCount} / ${total} subscriber${total !== 1 ? 's' : ''} acknowledged`
+                        : `${ackCount} acknowledged`;
                     div.innerHTML = `
                 <span class="amsg-badge amsg-badge-${badge}">${msg.type}</span>
                 <div class="amsg-body">
@@ -1438,6 +1524,11 @@
                         ${msg.duration ? `${msg.duration}s` : 'Manual dismiss'} ·
                         ${new Date(msg.created).toLocaleTimeString()}
                     </div>
+                    ${msg.display === 'popup' ? `
+                    <div class="amsg-ack-row">
+                        <div class="amsg-ack-bar"><div class="amsg-ack-bar-fill" style="width:${pct}%"></div></div>
+                        <span class="amsg-ack-label">${ackLabel}</span>
+                    </div>` : ''}
                 </div>
                 <button class="amsg-del" data-id="${msg.id}">✕ Delete</button>
             `;
@@ -1481,6 +1572,7 @@
                     const r = await fetch(`${API}/push/count`, { headers: { 'x-admin-password': adminPassword } });
                     if (r.ok) {
                         const { count } = await r.json();
+                        pushSubCount = count;
                         const el = document.getElementById('push-sub-count');
                         if (el) el.textContent = `${count} subscriber${count !== 1 ? 's' : ''}`;
                     }
@@ -1518,7 +1610,7 @@
                 setTimeout(() => fb.textContent = '', 6000);
             }
 
-            // ── Armageddon Mode ─────────────────────────────────────────
+            // ── E.S.T.O.P. Mode ─────────────────────────────────────────
 
             // Emergency type metadata (icons, colours, default titles)
             const ARM_TYPES = {
@@ -1656,7 +1748,7 @@
                             })
                         }).catch(() => { /* push failure is non-critical */ });
                     }
-                    armFeedback('☢️ Armageddon mode ACTIVE!', '#ef4444');
+                    armFeedback('🛑 E.S.T.O.P. ACTIVE!', '#ef4444');
                     loadArmageddonState();
                 } catch {
                     armFeedback('⚠ Failed to activate.', '#ef4444');
@@ -1666,10 +1758,10 @@
             });
 
             async function deactivateArmageddon() {
-                if (!confirm('Deactivate Armageddon mode? The display will return to normal.')) return;
+                if (!confirm('Deactivate E.S.T.O.P.? The display will return to normal.')) return;
                 try {
                     await fetch(`${API}/armageddon`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } });
-                    armFeedback('✓ Armageddon mode deactivated.', '#22c55e');
+                    armFeedback('✓ E.S.T.O.P. deactivated.', '#22c55e');
                     loadArmageddonState();
                 } catch {
                     armFeedback('⚠ Failed to deactivate.', '#ef4444');
@@ -1939,7 +2031,8 @@
             let fcRadiusMap = null, fcRadiusMarker = null, fcRadiusCircle = null;
 
             function initTargetingUI() {
-                document.querySelectorAll('.fc-target-tab').forEach(tab => {
+                // Scope to forecast tabs only ([data-tmode]); message tabs use [data-msgmode] and are wired in initMsgTargetingUI
+                document.querySelectorAll('.fc-target-tab[data-tmode]').forEach(tab => {
                     tab.addEventListener('click', () => setTargetingMode(tab.dataset.tmode));
                 });
 
@@ -1951,7 +2044,8 @@
 
             function setTargetingMode(mode) {
                 fcTargetMode = mode;
-                document.querySelectorAll('.fc-target-tab').forEach(t => t.classList.toggle('active', t.dataset.tmode === mode));
+                // Only target forecast tabs ([data-tmode]); message tabs use [data-msgmode]
+                document.querySelectorAll('.fc-target-tab[data-tmode]').forEach(t => t.classList.toggle('active', t.dataset.tmode === mode));
                 ['all', 'radius', 'zips', 'counties'].forEach(m => {
                     const el = document.getElementById(`fc-target-${m}`);
                     if (el) el.style.display = m === mode ? '' : 'none';
@@ -2054,6 +2148,92 @@
                 el.style.color = color;
                 el.textContent = msg;
                 setTimeout(() => { el.textContent = ''; }, 4000);
+            }
+
+            // ── Message Location Targeting UI ──────────────────────────
+            function initMsgTargetingUI() {
+                document.querySelectorAll('.msg-target-tab').forEach(tab => {
+                    tab.addEventListener('click', () => setMsgTargetingMode(tab.dataset.msgmode));
+                });
+                ['msg-radius-lat', 'msg-radius-lon', 'msg-radius-mi'].forEach(id => {
+                    document.getElementById(id)?.addEventListener('input', syncMsgRadiusCircle);
+                });
+            }
+
+            function setMsgTargetingMode(mode) {
+                msgTargetMode = mode;
+                document.querySelectorAll('.msg-target-tab').forEach(t => t.classList.toggle('active', t.dataset.msgmode === mode));
+                ['all', 'radius', 'zips', 'counties'].forEach(m => {
+                    const el = document.getElementById(`msg-target-${m}`);
+                    if (el) el.style.display = m === mode ? '' : 'none';
+                });
+                const badge = document.getElementById('msg-target-badge');
+                if (badge) {
+                    const labels = { all: 'All Viewers', radius: 'Map Area', zips: 'ZIP Codes', counties: 'Counties' };
+                    badge.textContent = labels[mode] || 'All Viewers';
+                }
+                if (mode === 'radius') initMsgRadiusMap();
+            }
+
+            function initMsgRadiusMap() {
+                if (msgRadiusMap) { msgRadiusMap.invalidateSize(); return; }
+                if (typeof L === 'undefined') return;
+                const container = document.getElementById('msg-radius-map');
+                if (!container) return;
+                msgRadiusMap = L.map(container, { zoomControl: true }).setView([39.5, -98.35], 4);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors', maxZoom: 18
+                }).addTo(msgRadiusMap);
+                msgRadiusMap.on('click', e => {
+                    const { lat, lng } = e.latlng;
+                    document.getElementById('msg-radius-lat').value = lat.toFixed(5);
+                    document.getElementById('msg-radius-lon').value = lng.toFixed(5);
+                    syncMsgRadiusCircle();
+                });
+                syncMsgRadiusCircle();
+            }
+
+            function syncMsgRadiusCircle() {
+                if (!msgRadiusMap || typeof L === 'undefined') return;
+                const lat = parseFloat(document.getElementById('msg-radius-lat')?.value);
+                const lon = parseFloat(document.getElementById('msg-radius-lon')?.value);
+                const mi = parseFloat(document.getElementById('msg-radius-mi')?.value);
+                if (msgRadiusMarker) { msgRadiusMap.removeLayer(msgRadiusMarker); msgRadiusMarker = null; }
+                if (msgRadiusCircle) { msgRadiusMap.removeLayer(msgRadiusCircle); msgRadiusCircle = null; }
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    const METERS_PER_MILE = 1609.344;
+                    msgRadiusMarker = L.marker([lat, lon]).addTo(msgRadiusMap);
+                    if (!isNaN(mi) && mi > 0) {
+                        msgRadiusCircle = L.circle([lat, lon], { radius: mi * METERS_PER_MILE, color: '#06b6d4', fillOpacity: 0.12 }).addTo(msgRadiusMap);
+                        msgRadiusMap.fitBounds(msgRadiusCircle.getBounds(), { maxZoom: 10 });
+                    } else {
+                        msgRadiusMap.setView([lat, lon], 8);
+                    }
+                }
+            }
+
+            function getMsgTargetingData() {
+                const mode = msgTargetMode;
+                if (mode === 'all') return { mode: 'all' };
+                if (mode === 'radius') {
+                    const lat = parseFloat(document.getElementById('msg-radius-lat')?.value);
+                    const lon = parseFloat(document.getElementById('msg-radius-lon')?.value);
+                    const mi = parseFloat(document.getElementById('msg-radius-mi')?.value);
+                    return {
+                        mode: 'radius',
+                        center: (!isNaN(lat) && !isNaN(lon)) ? { lat, lon } : null,
+                        radiusMiles: !isNaN(mi) ? mi : null
+                    };
+                }
+                if (mode === 'zips') {
+                    const raw = document.getElementById('msg-zip-input')?.value || '';
+                    return { mode: 'zips', zips: raw.split(',').map(z => z.trim()).filter(Boolean) };
+                }
+                if (mode === 'counties') {
+                    const raw = document.getElementById('msg-county-input')?.value || '';
+                    return { mode: 'counties', counties: raw.split(',').map(c => c.trim()).filter(Boolean) };
+                }
+                return { mode: 'all' };
             }
 
             function feedback(msg, color) {

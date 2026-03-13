@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════
-   announcements.js – Polls /api/poll (combined messages + armageddon)
+   announcements.js – Polls /api/poll (combined messages + ESTOP state)
    ════════════════════════════════════════════════════════════════ */
 
 const Announcements = (() => {
@@ -9,6 +9,8 @@ const Announcements = (() => {
     const POLL_MS = 10000;   // 10 s — was two separate 5 s loops (24 req/min → 6 req/min)
     let armageddonActive = false;
     let armageddonVersion = null; // tracks activatedAt to detect updates while active
+    let musicWasPlaying = false;  // tracks whether music was playing before ESTOP muted it
+    let estopTtsTimer = null;     // pending TTS timeout — cancelled if ESTOP is cleared early
 
     // ── TTS helper ────────────────────────────────────────────────
     function speakMessage(msg) {
@@ -84,22 +86,99 @@ const Announcements = (() => {
     }
 
 
-    // ── Combined poll: messages + armageddon in one request ───────
+    // ── Location targeting helper (mirrors app.js isInForecastArea) ─
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 3958.8;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function isMessageForMe(msg) {
+        const t = msg.targeting;
+        if (!t || t.mode === 'all') return true;
+        if (typeof WeatherAPI === 'undefined') return true;
+        const loc = WeatherAPI.getLocation();
+        if (!loc?.lat) return true; // no location known → show by default
+
+        if (t.mode === 'radius') {
+            const c = t.center;
+            const r = parseFloat(t.radiusMiles);
+            if (!c?.lat || !c?.lon || !r) return true;
+            return haversineDistance(loc.lat, loc.lon, c.lat, c.lon) <= r;
+        }
+        if (t.mode === 'zips') {
+            const zips = (t.zips || []).map(z => String(z).trim()).filter(Boolean);
+            if (!zips.length) return true;
+            const details = WeatherAPI.getLocationDetails?.();
+            if (!details?.zip) return true;
+            return zips.includes(String(details.zip).trim());
+        }
+        if (t.mode === 'counties') {
+            const counties = (t.counties || []).map(c => c.trim().toLowerCase()).filter(Boolean);
+            if (!counties.length) return true;
+            const details = WeatherAPI.getLocationDetails?.();
+            if (!details?.county) return true;
+            const viewerCounty = details.county.toLowerCase();
+            return counties.some(c => viewerCounty.includes(c) || c.includes(viewerCounty));
+        }
+        return true;
+    }
+
+    // ── ESTOP alert sound (EAS-style dual-tone siren) ─────────────
+    function playESTOPSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const pulseMs = 0.18;
+            const freqA = 853, freqB = 960;
+            const numCycles = 8; // ~3 s of alternating dual-tone pulses
+            // Alternating dual-tone pulses mimicking EAS attention signal
+            for (let i = 0; i < numCycles; i++) {
+                [freqA, freqB].forEach((freq, fi) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.type = 'square';
+                    osc.frequency.value = freq;
+                    const s = ctx.currentTime + i * pulseMs * 2 + fi * pulseMs;
+                    gain.gain.setValueAtTime(0, s);
+                    gain.gain.linearRampToValueAtTime(0.3, s + 0.01);
+                    gain.gain.setValueAtTime(0.3, s + pulseMs - 0.01);
+                    gain.gain.linearRampToValueAtTime(0, s + pulseMs);
+                    osc.start(s); osc.stop(s + pulseMs + 0.02);
+                });
+            }
+        } catch { /* AudioContext not supported */ }
+    }
+
+    // ── Combined poll: messages + ESTOP state in one request ──────
     async function pollAll() {
         try {
             const resp = await fetch(`/api/poll?since=${lastId}`, { cache: 'no-store' });
             if (!resp.ok) return;
             const { messages, armageddon } = await resp.json();
 
-            // Handle new messages
+            // Handle new messages (filtered by location targeting)
             messages.forEach(msg => {
+                // lastId only advances for messages that are actually shown.
+                // Location-filtered messages (isMessageForMe → false) are skipped without
+                // advancing lastId so they're re-evaluated on future polls as location loads.
+                // mode:'all' and unknown-location always return true from isMessageForMe.
+                if (!isMessageForMe(msg)) return;
+                if (getLocalDismissed().has(msg.id)) {
+                    // Already dismissed locally; advance lastId to avoid re-fetching.
+                    lastId = Math.max(lastId, msg.id);
+                    return;
+                }
                 lastId = Math.max(lastId, msg.id);
                 playAlertSound(msg.type);
                 show(msg);
                 speakMessage(msg);
             });
 
-            // Handle armageddon state changes
+            // Handle ESTOP state changes
             if (armageddon.active) {
                 const ver = armageddon.activatedAt;
                 if (!armageddonActive || ver !== armageddonVersion) {
@@ -181,7 +260,7 @@ const Announcements = (() => {
 
     function dismissBanner(banner, id) {
         banner.classList.add('hidden');
-        dismissOnServer(id);
+        addLocalDismissed(id);
     }
 
     // ── Full-screen popup overlay ─────────────────────────────────
@@ -202,6 +281,9 @@ const Announcements = (() => {
                     <button class="announce-popup-close" title="Dismiss">✕</button>
                 </div>
                 <div class="announce-popup-body markdown-body">${parsedBody}</div>
+                <div class="announce-popup-footer">
+                    <button class="announce-popup-ack" title="Acknowledge receipt">✓ Acknowledge</button>
+                </div>
                 ${msg.duration > 0 ? `<div class="announce-popup-timer"><div class="announce-popup-timer-bar"></div></div>` : ''}
             </div>
         `;
@@ -210,9 +292,20 @@ const Announcements = (() => {
         const doClose = () => {
             overlay.classList.add('popup-exit');
             setTimeout(() => overlay.remove(), 400);
-            dismissOnServer(msg.id);
+            addLocalDismissed(msg.id);
         };
         closeBtn.addEventListener('click', doClose);
+
+        const ackBtn = overlay.querySelector('.announce-popup-ack');
+        if (ackBtn) {
+            ackBtn.addEventListener('click', async () => {
+                ackBtn.disabled = true;
+                ackBtn.textContent = '✓ Acknowledged';
+                ackBtn.classList.add('acked');
+                await acknowledgeMessage(msg.id);
+                setTimeout(doClose, 600);
+            });
+        }
 
         if (msg.type !== 'emergency') {
             overlay.addEventListener('click', e => { if (e.target === overlay) doClose(); });
@@ -257,11 +350,152 @@ const Announcements = (() => {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // ── Tell server a message was dismissed ────────────────────────
-    async function dismissOnServer(id) {
+    // ── Visitor ID (stable across page refreshes, unique per browser) ─
+    function getVisitorId() {
+        let id = localStorage.getItem('shelly-visitor-id');
+        if (!id) {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                id = crypto.randomUUID();
+            } else if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+                const buf = new Uint8Array(16);
+                crypto.getRandomValues(buf);
+                id = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+            } else {
+                id = Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+            }
+            localStorage.setItem('shelly-visitor-id', id);
+        }
+        return id;
+    }
+
+    // ── Locally-dismissed message tracking ────────────────────────
+    // Dismissed message IDs are stored in localStorage so they don't
+    // reappear after a page reload without requiring admin auth.
+    const DISMISSED_KEY = 'shelly-dismissed-msgs';
+    function getLocalDismissed() {
         try {
-            await fetch(`/api/messages/${id}`, { method: 'DELETE', headers: { 'x-admin-password': '' } });
-        } catch { /* ok */ }
+            const raw = localStorage.getItem(DISMISSED_KEY);
+            return new Set(JSON.parse(raw) ?? []);
+        } catch { return new Set(); }
+    }
+    function addLocalDismissed(id) {
+        try {
+            const set = getLocalDismissed();
+            set.add(id);
+            // Keep only the most recent 200 entries to avoid unbounded storage growth
+            const arr = Array.from(set).slice(-200);
+            localStorage.setItem(DISMISSED_KEY, JSON.stringify(arr));
+        } catch { /* storage unavailable */ }
+    }
+
+    // ── Tell server a message was acknowledged ─────────────────────
+    async function acknowledgeMessage(id) {
+        try {
+            await fetch(`/api/messages/${id}/acknowledge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ visitorId: getVisitorId() }),
+            });
+        } catch (err) {
+            console.warn('[Announcements] Acknowledge failed:', err.message);
+        }
+    }
+
+    // ── ESTOP overlay (type-themed) ───────────────────────────────
+    const ARM_THEME = {
+        tornado:      { icon: '🌪️', color: '#ef4444', bg: 'rgba(10,0,0,0.97)',  bg2: 'rgba(40,0,0,0.97)',   glow: 'rgba(239,68,68,0.8)' },
+        hurricane:    { icon: '🌀', color: '#a855f7', bg: 'rgba(5,0,15,0.97)',   bg2: 'rgba(20,0,40,0.97)',  glow: 'rgba(168,85,247,0.8)' },
+        flood:        { icon: '🌊', color: '#3b82f6', bg: 'rgba(0,5,20,0.97)',   bg2: 'rgba(0,15,40,0.97)',  glow: 'rgba(59,130,246,0.8)' },
+        fire:         { icon: '🔥', color: '#f97316', bg: 'rgba(15,3,0,0.97)',   bg2: 'rgba(40,10,0,0.97)',  glow: 'rgba(249,115,22,0.8)' },
+        winter:       { icon: '❄️', color: '#bae6fd', bg: 'rgba(0,5,20,0.97)',   bg2: 'rgba(0,10,30,0.97)',  glow: 'rgba(186,230,253,0.8)' },
+        thunderstorm: { icon: '⛈️', color: '#fbbf24', bg: 'rgba(5,5,0,0.97)',    bg2: 'rgba(15,12,0,0.97)',  glow: 'rgba(251,191,36,0.8)' },
+        nuclear:      { icon: '☢️', color: '#ef4444', bg: 'rgba(10,0,0,0.97)',   bg2: 'rgba(40,0,0,0.97)',   glow: 'rgba(239,68,68,0.8)' },
+        civil:        { icon: '📻', color: '#f97316', bg: 'rgba(10,5,0,0.97)',   bg2: 'rgba(30,10,0,0.97)',  glow: 'rgba(249,115,22,0.8)' },
+        custom:       { icon: '🚨', color: '#ef4444', bg: 'rgba(10,0,0,0.97)',   bg2: 'rgba(40,0,0,0.97)',   glow: 'rgba(239,68,68,0.8)' },
+        emergency:    { icon: '🚨', color: '#ef4444', bg: 'rgba(10,0,0,0.97)',   bg2: 'rgba(40,0,0,0.97)',   glow: 'rgba(239,68,68,0.8)' },
+    };
+
+    let armCountdownRAF = null;
+
+    function showArmageddonOverlay(data) {
+        removeArmageddonOverlay(); // ensure no duplicate
+        // Remember whether music was playing before stopping it
+        musicWasPlaying = typeof MusicPlayer !== 'undefined' && MusicPlayer.isPlaying;
+        if (typeof MusicPlayer !== 'undefined') MusicPlayer.pause();
+        playESTOPSound();
+        const theme = ARM_THEME[data.type] || ARM_THEME.emergency;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'armageddon-overlay';
+        overlay.className = 'armageddon-overlay';
+        // Apply type-specific palette via CSS custom properties
+        overlay.style.setProperty('--arm-bg',   theme.bg);
+        overlay.style.setProperty('--arm-bg2',  theme.bg2);
+        overlay.style.setProperty('--arm-color', theme.color);
+        overlay.style.setProperty('--arm-glow',  theme.glow);
+        overlay.style.background = theme.bg;
+
+        let parsedBody = escHtml(data.text);
+        if (typeof marked !== 'undefined') {
+            const raw = marked.parse(data.text, { breaks: true });
+            parsedBody = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(raw) : raw;
+        }
+
+        overlay.innerHTML = `
+            <div class="armageddon-inner">
+                <div class="armageddon-icon">${theme.icon}</div>
+                ${data.title ? `<div class="armageddon-title">${escHtml(data.title)}</div>` : ''}
+                <div class="armageddon-body markdown-body">${parsedBody}</div>
+                ${data.expiresAt ? `<div class="armageddon-countdown" id="arm-overlay-countdown"></div>` : ''}
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('armageddon-visible'));
+
+        // Live countdown if there's an expiry
+        if (data.expiresAt) {
+            const countdownEl = document.getElementById('arm-overlay-countdown');
+            const tick = () => {
+                const ms = data.expiresAt - Date.now();
+                if (!countdownEl || !overlay.isConnected) return;
+                if (ms <= 0) { countdownEl.textContent = 'Expiring…'; return; }
+                const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+                countdownEl.textContent = `This alert will automatically clear in ${m}m ${s}s`;
+                armCountdownRAF = setTimeout(tick, 1000);
+            };
+            tick();
+        }
+
+        // Speak the ESTOP message after the siren finishes (~3.2 s)
+        if ('speechSynthesis' in window && data.text) {
+            estopTtsTimer = setTimeout(() => {
+                estopTtsTimer = null;
+                window.speechSynthesis.cancel();
+                const utterText = (data.title ? `${data.title}. ` : 'Emergency Alert. ') + data.text;
+                const utt = new SpeechSynthesisUtterance(utterText);
+                utt.rate = 1.1;
+                utt.pitch = 1.1;
+                // Reuse saved voice preference if available
+                const voices = window.speechSynthesis.getVoices();
+                const saved = localStorage.getItem('ttsVoice');
+                if (saved) utt.voice = voices.find(v => v.name === saved) || null;
+                window.speechSynthesis.speak(utt);
+            }, 3200); // after siren finishes (~8 cycles × 0.36 s)
+        }
+    }
+
+    function removeArmageddonOverlay() {
+        if (armCountdownRAF) { clearTimeout(armCountdownRAF); armCountdownRAF = null; }
+        // Cancel any pending or in-progress TTS from ESTOP
+        if (estopTtsTimer) { clearTimeout(estopTtsTimer); estopTtsTimer = null; }
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        const overlay = document.getElementById('armageddon-overlay');
+        if (overlay) overlay.remove();
+        // Resume music only if it was playing when ESTOP was activated
+        if (musicWasPlaying && typeof MusicPlayer !== 'undefined') {
+            MusicPlayer.play();
+        }
+        musicWasPlaying = false;
     }
 
     // ── Armageddon overlay (type-themed) ──────────────────────────
@@ -336,6 +570,8 @@ const Announcements = (() => {
     function init() {
         // Don't poll if opened as a local file — admin API won't be there
         if (window.location.protocol === 'file:') return;
+        // Guard against duplicate init calls creating multiple intervals
+        if (pollTimer !== null) return;
         pollAll();
         pollTimer = setInterval(pollAll, POLL_MS);
     }
