@@ -70,6 +70,7 @@
                 <label><input type="checkbox" data-display="extended" checked /> Extended Forecast</label>
                 <label><input type="checkbox" data-display="precipchart" checked /> Precipitation</label>
                 <label><input type="checkbox" data-display="almanac" checked /> Almanac</label>
+                <label><input type="checkbox" data-display="climate" checked /> On This Day</label>
                 <label><input type="checkbox" data-display="airquality" checked /> Air Quality</label>
                 <label><input type="checkbox" data-display="travel" checked /> Travel Forecast</label>
                 <label><input type="checkbox" data-display="regionalobs" checked /> Regional Observations</label>
@@ -366,6 +367,17 @@
                         <div id="alm-dayofyear" class="almanac-value">---</div>
                     </div>
                 </div>
+            </div>
+
+            <!-- On This Day – Climate History -->
+            <div class="slide hidden" id="slide-climate" data-display="climate">
+                <div class="slide-header">
+                    <span class="slide-title">On This Day</span>
+                    <span id="climate-history-date" class="slide-badge" style="background:rgba(251,191,36,0.12);color:var(--text-accent);border:1px solid rgba(251,191,36,0.3)"></span>
+                    <span class="slide-badge" style="background:rgba(59,130,246,0.1);color:var(--text-secondary);border:1px solid rgba(59,130,246,0.2);font-size:0.6rem">Archive · 30 yr</span>
+                    <span id="climate-history-years" class="slide-badge" style="background:rgba(100,116,139,0.1);color:var(--text-secondary);border:1px solid rgba(100,116,139,0.2);font-size:0.6rem"></span>
+                </div>
+                <div id="climate-history-container" class="ch-layout"></div>
             </div>
 
             <!-- Air Quality -->

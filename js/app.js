@@ -64,6 +64,7 @@
             { id: 'slide-extended', display: 'extended', label: 'EXTENDED' },
             { id: 'slide-precipchart', display: 'precipchart', label: 'PRECIPITATION' },
             { id: 'slide-almanac', display: 'almanac', label: 'ALMANAC' },
+            { id: 'slide-climate', display: 'climate', label: 'ON THIS DAY' },
             { id: 'slide-airquality', display: 'airquality', label: 'AIR QUALITY' },
             { id: 'slide-pollen', display: 'pollen', label: 'POLLEN' },
             { id: 'slide-travel', display: 'travel', label: 'TRAVEL FORECAST' },
