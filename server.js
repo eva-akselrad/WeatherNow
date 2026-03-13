@@ -449,14 +449,41 @@ app.get('/api/spc-outlook', async (req, res) => {
 });
 
 // ── GET /api/local-cam?lat=X&lon=Y ───────────────────────────
-// Finds webcams within 20 miles using the OpenStreetMap Overpass API.
+// Finds the nearest webcam using the OpenStreetMap Overpass API.
 // Fully FOSS — no API key required, no per-day request cap.
 // Webcam nodes in OSM carry a "contact:webcam" tag with a live image URL.
+// Uses an expanding-radius search so the closest cam is always returned.
 // In-memory TTL cache (10 min) keyed by rounded coordinates.
 const camCache = {}; // { [key]: { data, expiresAt } }
 const CAM_TTL_MS = 10 * 60 * 1000;
-const CAM_RADIUS_METERS = 32187; // 20 miles
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+
+// Haversine distance in metres between two lat/lon points
+function haversineMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function queryOverpassCams(lat, lon, radiusMeters) {
+    const query = `[out:json][timeout:12];node["contact:webcam"](around:${radiusMeters},${lat},${lon});out body 20;`;
+    const res = await fetch(OVERPASS_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'S.H.E.L.L.Y.-WeatherClient/1.0 (weather display; contact:admin@shelly.local)',
+        },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(14000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.elements) ? data.elements : [];
+}
 
 app.get('/api/local-cam', async (req, res) => {
     const lat = parseFloat(req.query.lat);
@@ -474,43 +501,32 @@ app.get('/api/local-cam', async (req, res) => {
         return res.json(cached.data);
     }
 
-    // Overpass QL: nodes tagged with contact:webcam within radius
-    const query = `[out:json][timeout:10];node["contact:webcam"](around:${CAM_RADIUS_METERS},${lat},${lon});out body 5;`;
-
     try {
-        const upstream = await fetch(OVERPASS_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': 'S.H.E.L.L.Y.-WeatherClient/1.0 (weather display; contact:admin@shelly.local)',
-            },
-            body: `data=${encodeURIComponent(query)}`,
-            signal: AbortSignal.timeout(12000),
-        });
-
-        if (!upstream.ok) {
-            if (cached) {
-                res.setHeader('Cache-Control', 'public, max-age=600');
-                return res.json(cached.data);
-            }
-            return res.json({ cameras: [] });
+        // Expanding-radius search: try 50 km first, fall back to 500 km so we
+        // always find the nearest cam regardless of how far away it is.
+        let elements = await queryOverpassCams(lat, lon, 50000);
+        if (elements.length === 0) {
+            elements = await queryOverpassCams(lat, lon, 500000);
         }
 
-        const data = await upstream.json();
-        const elements = Array.isArray(data.elements) ? data.elements : [];
-
-        // Normalize OSM nodes into a simple camera object the client understands
-        const cameras = elements
+        // Keep only nodes that actually carry a webcam URL, sort by distance,
+        // then return just the single nearest one.
+        const nearest = elements
             .filter(n => n.tags && n.tags['contact:webcam'])
             .map(n => ({
                 title: n.tags.name || n.tags.operator || 'Webcam',
                 imageUrl: n.tags['contact:webcam'],
+                distanceM: haversineMeters(lat, lon, n.lat, n.lon),
                 location: {
                     city: n.tags['addr:city'] || n.tags['addr:town'] || n.tags['addr:village'] || '',
                     region: n.tags['addr:state'] || n.tags['addr:country'] || '',
                 },
-            }));
+            }))
+            .sort((a, b) => a.distanceM - b.distanceM)[0];
 
+        const cameras = nearest
+            ? [{ title: nearest.title, imageUrl: nearest.imageUrl, location: nearest.location }]
+            : [];
         const result = { cameras };
         camCache[cacheKey] = { data: result, expiresAt: Date.now() + CAM_TTL_MS };
         res.setHeader('Cache-Control', 'public, max-age=600');
