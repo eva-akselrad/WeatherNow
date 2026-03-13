@@ -2,6 +2,7 @@
    localcam.js – Live Local Cams slide
    Displays a nearby webcam feed (refreshing still image) with
    camera location title overlaid at the bottom.
+   Webcam data sourced from OpenStreetMap via /api/local-cam.
    Webcam data is supplied by weather.js via setCam(); image
    refresh is managed internally while the slide is visible.
    ════════════════════════════════════════════════════════════════ */
@@ -16,22 +17,18 @@ const LocalCam = (() => {
 
     function el(id) { return document.getElementById(id); }
 
-    // Build a cache-busted image URL from the webcam object
+    // Return a cache-busted image URL from the normalized camera object
     function buildImageUrl(cam) {
-        const base = cam?.images?.current?.preview
-            || cam?.images?.current?.thumbnail
-            || cam?.images?.current?.toenail
-            || '';
+        const base = cam?.imageUrl || '';
         return base ? `${base}?t=${Date.now()}` : '';
     }
 
-    // Build a human-readable location title
+    // Build a human-readable location title from the normalized camera object
     function buildTitle(cam) {
         const parts = [];
         if (cam?.title) parts.push(cam.title);
-        const loc = cam?.location || {};
-        const city = loc.city;
-        const region = loc.region || loc.country;
+        const city = cam?.location?.city;
+        const region = cam?.location?.region;
         if (city && city !== cam?.title) parts.push(city);
         if (region && region !== cam?.title && region !== city) parts.push(region);
         return parts.join(' — ');

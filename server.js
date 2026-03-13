@@ -449,13 +449,14 @@ app.get('/api/spc-outlook', async (req, res) => {
 });
 
 // ── GET /api/local-cam?lat=X&lon=Y ───────────────────────────
-// Proxies Windy Webcam API v3 to find webcams within 20 miles of a location.
-// Requires WINDY_API_KEY environment variable (free registration at windy.com).
-// Returns { cameras: [] } gracefully if no key is set or no cameras are found.
+// Finds webcams within 20 miles using the OpenStreetMap Overpass API.
+// Fully FOSS — no API key required, no per-day request cap.
+// Webcam nodes in OSM carry a "contact:webcam" tag with a live image URL.
 // In-memory TTL cache (10 min) keyed by rounded coordinates.
 const camCache = {}; // { [key]: { data, expiresAt } }
 const CAM_TTL_MS = 10 * 60 * 1000;
 const CAM_RADIUS_METERS = 32187; // 20 miles
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
 app.get('/api/local-cam', async (req, res) => {
     const lat = parseFloat(req.query.lat);
@@ -465,12 +466,7 @@ app.get('/api/local-cam', async (req, res) => {
         return res.status(400).json({ error: 'lat and lon must be valid coordinates' });
     }
 
-    const apiKey = process.env.WINDY_API_KEY;
-    if (!apiKey) {
-        return res.json({ cameras: [] });
-    }
-
-    // Round to 2 decimal places (~1 km) for cache key
+    // Round to 2 decimal places for cache key
     const cacheKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
     const cached = camCache[cacheKey];
     if (cached && Date.now() < cached.expiresAt) {
@@ -478,15 +474,20 @@ app.get('/api/local-cam', async (req, res) => {
         return res.json(cached.data);
     }
 
-    const url = `https://api.windy.com/webcams/api/v3/webcams?nearby=${lat},${lon},${CAM_RADIUS_METERS}&limit=5&include=location,player,images`;
+    // Overpass QL: nodes tagged with contact:webcam within radius
+    const query = `[out:json][timeout:10];node["contact:webcam"](around:${CAM_RADIUS_METERS},${lat},${lon});out body 5;`;
+
     try {
-        const upstream = await fetch(url, {
+        const upstream = await fetch(OVERPASS_URL, {
+            method: 'POST',
             headers: {
-                'x-windy-api-key': apiKey,
-                'User-Agent': 'S.H.E.L.L.Y.-WeatherClient/1.0 (weather display)',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'S.H.E.L.L.Y.-WeatherClient/1.0 (weather display; contact:admin@shelly.local)',
             },
-            signal: AbortSignal.timeout(8000),
+            body: `data=${encodeURIComponent(query)}`,
+            signal: AbortSignal.timeout(12000),
         });
+
         if (!upstream.ok) {
             if (cached) {
                 res.setHeader('Cache-Control', 'public, max-age=600');
@@ -494,13 +495,28 @@ app.get('/api/local-cam', async (req, res) => {
             }
             return res.json({ cameras: [] });
         }
+
         const data = await upstream.json();
-        const result = { cameras: Array.isArray(data.webcams) ? data.webcams : [] };
+        const elements = Array.isArray(data.elements) ? data.elements : [];
+
+        // Normalize OSM nodes into a simple camera object the client understands
+        const cameras = elements
+            .filter(n => n.tags && n.tags['contact:webcam'])
+            .map(n => ({
+                title: n.tags.name || n.tags.operator || 'Webcam',
+                imageUrl: n.tags['contact:webcam'],
+                location: {
+                    city: n.tags['addr:city'] || n.tags['addr:town'] || n.tags['addr:village'] || '',
+                    region: n.tags['addr:state'] || n.tags['addr:country'] || '',
+                },
+            }));
+
+        const result = { cameras };
         camCache[cacheKey] = { data: result, expiresAt: Date.now() + CAM_TTL_MS };
         res.setHeader('Cache-Control', 'public, max-age=600');
         res.json(result);
     } catch (err) {
-        console.error('[LocalCam] Proxy error:', err.message);
+        console.error('[LocalCam] Overpass error:', err.message);
         if (cached) {
             res.setHeader('Cache-Control', 'public, max-age=600');
             return res.json(cached.data);
