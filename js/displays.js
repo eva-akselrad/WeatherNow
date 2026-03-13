@@ -136,6 +136,7 @@ const Displays = (() => {
               <div class="hourly-temp">${h.temp}</div>
               <div class="hourly-desc">${h.desc}</div>
               ${h.precip ? `<div class="hourly-precip">${h.precip}</div>` : ''}
+              ${h.humidity ? `<div class="hourly-humidity">💧 ${h.humidity}</div>` : ''}
               ${h.wind ? `<div class="hourly-wind">💨 ${h.wind}</div>` : ''}
             `;
             container.appendChild(card);
@@ -147,6 +148,17 @@ const Displays = (() => {
         const container = el('extended-container');
         if (!container) return;
         container.innerHTML = '';
+
+        // Trend badge
+        const trend = data.extendedTrend;
+        if (trend) {
+            const badge = document.createElement('div');
+            badge.className = `extended-trend-badge trend-${trend.dir}`;
+            const sign = trend.diff > 0 ? '+' : '';
+            badge.textContent = `${trend.symbol} ${trend.label} Trend${trend.diff !== 0 ? ` (${sign}${trend.diff}°)` : ''}`;
+            container.appendChild(badge);
+        }
+
         (data.daily || []).forEach(d => {
             const card = document.createElement('div');
             card.className = 'day-card' + (d.isToday ? ' today' : '');

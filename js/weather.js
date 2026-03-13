@@ -86,7 +86,7 @@ const WeatherAPI = (() => {
             wind_speed_unit: windU,
             precipitation_unit: precU,
             timezone: 'auto',
-            forecast_days: 8,
+            forecast_days: 14,
             forecast_hours: 48,
             past_hours: 2
         });
@@ -294,7 +294,7 @@ const WeatherAPI = (() => {
         // Hourly (next 48h, skip past_hours offset)
         const hourlyOffset = 2; // past_hours=2
         const hourly = [];
-        for (let i = hourlyOffset; i < Math.min(hourlyOffset + 24, h.time.length); i++) {
+        for (let i = hourlyOffset; i < Math.min(hourlyOffset + 48, h.time.length); i++) {
             const t = new Date(h.time[i]);
             const wxH = wmoToWeather(h.weather_code[i], t.getHours() >= 6 && t.getHours() < 20);
             hourly.push({
@@ -305,6 +305,7 @@ const WeatherAPI = (() => {
                 precip: h.precipitation_probability[i] > 5 ? `💧 ${h.precipitation_probability[i]}%` : '',
                 precipAmt: h.precipitation?.[i] > 0 ? `${h.precipitation[i].toFixed(2)}"` : '',
                 wind: h.wind_speed_10m?.[i] ? `${Math.round(h.wind_speed_10m[i])} ${windU}` : '',
+                humidity: h.relative_humidity_2m?.[i] != null ? `${h.relative_humidity_2m[i]}%` : '',
                 cloud: h.cloud_cover?.[i] != null ? `${h.cloud_cover[i]}%` : '',
                 isCurrent: i === hourlyOffset
             });
@@ -323,10 +324,10 @@ const WeatherAPI = (() => {
             });
         }
 
-        // Daily (7-day)
+        // Daily (up to 14 days)
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const daily = [];
-        for (let i = 0; i < Math.min(7, d.time.length); i++) {
+        for (let i = 0; i < Math.min(14, d.time.length); i++) {
             const dt = new Date(d.time[i] + 'T12:00:00');
             const wxD = wmoToWeather(d.weather_code[i]);
             daily.push({
@@ -334,6 +335,8 @@ const WeatherAPI = (() => {
                 icon: wxD.emoji, desc: wxD.desc,
                 hi: fmtTemp(d.temperature_2m_max[i]),
                 lo: fmtTemp(d.temperature_2m_min[i]),
+                hiRaw: d.temperature_2m_max[i],
+                loRaw: d.temperature_2m_min[i],
                 precip: d.precipitation_probability_max[i] > 5 ? `💧 ${d.precipitation_probability_max[i]}%` : '',
                 precipSum: d.precipitation_sum?.[i] > 0 ? `${d.precipitation_sum[i].toFixed(2)} ${useFahrenheit ? 'in' : 'mm'}` : '',
                 snowSum: d.snowfall_sum?.[i] > 0 ? `❄ ${d.snowfall_sum[i].toFixed(1)} ${useFahrenheit ? 'in' : 'cm'}` : '',
@@ -341,6 +344,18 @@ const WeatherAPI = (() => {
                 uvMax: d.uv_index_max?.[i] != null ? d.uv_index_max[i].toFixed(0) : '--',
                 isToday: i === 0
             });
+        }
+
+        // Temperature trend analysis over the forecast period
+        const hiTemps = daily.map(x => x.hiRaw).filter(v => v != null);
+        let extendedTrend = { dir: 'stable', symbol: '→', label: 'Stable', diff: 0 };
+        if (hiTemps.length >= 4) {
+            const half = Math.floor(hiTemps.length / 2);
+            const firstAvg = hiTemps.slice(0, half).reduce((s, v) => s + v, 0) / half;
+            const lastAvg = hiTemps.slice(-half).reduce((s, v) => s + v, 0) / half;
+            const diff = Math.round(lastAvg - firstAvg);
+            if (diff >= 3) extendedTrend = { dir: 'warming', symbol: '↑', label: 'Warming', diff };
+            else if (diff <= -3) extendedTrend = { dir: 'cooling', symbol: '↓', label: 'Cooling', diff };
         }
 
         // Almanac
@@ -384,7 +399,7 @@ const WeatherAPI = (() => {
         // Ticker
         const ticker = `${wx.emoji} ${wx.desc} | ${conditions.temp} (Feels ${conditions.feelsLike}) | Humidity: ${conditions.humidity} | Dewpoint: ${conditions.dewpoint} | Wind: ${conditions.wind} | Gusts: ${conditions.gusts} | Visibility: ${conditions.visibility} | Pressure: ${conditions.pressure} ${pressureTrend} | UV: ${conditions.uvRaw ?? '--'} | Cloud Cover: ${cloudPct}%${c.snow_depth > 0 ? ' | Snow Depth: ' + conditions.snowDepth : ''}`;
 
-        return { conditions, hourly, daily, almanac, airQuality, pollen, precipChart, ticker };
+        return { conditions, hourly, daily, extendedTrend, almanac, airQuality, pollen, precipChart, ticker };
     }
 
     // ── Multi-city helpers ────────────────────────────────────────

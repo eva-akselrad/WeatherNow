@@ -3063,6 +3063,48 @@ body.kiosk-mode #pwa-guide-modal {
     letter-spacing: 0.12em;
 }
 
+/* ── Extended Forecast: trend badge ──────────────────────────── */
+.extended-trend-badge {
+    grid-column: 1 / -1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid;
+    align-self: start;
+    justify-self: start;
+}
+
+.extended-trend-badge.trend-warming {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+}
+
+.extended-trend-badge.trend-cooling {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+}
+
+.extended-trend-badge.trend-stable {
+    background: rgba(156, 163, 175, 0.12);
+    border-color: rgba(156, 163, 175, 0.3);
+    color: var(--text-secondary);
+}
+
+/* ── Hourly card humidity row ────────────────────────────────── */
+.hourly-humidity {
+    font-size: 0.78rem;
+    color: var(--accent2);
+    font-weight: 500;
+}
+
 /* ════════════════════════════════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════════════════════════════════ */
