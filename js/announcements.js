@@ -167,6 +167,11 @@ const Announcements = (() => {
                 // advancing lastId so they're re-evaluated on future polls as location loads.
                 // mode:'all' and unknown-location always return true from isMessageForMe.
                 if (!isMessageForMe(msg)) return;
+                if (getLocalDismissed().has(msg.id)) {
+                    // Already dismissed locally; advance lastId to avoid re-fetching.
+                    lastId = Math.max(lastId, msg.id);
+                    return;
+                }
                 lastId = Math.max(lastId, msg.id);
                 playAlertSound(msg.type);
                 show(msg);
@@ -255,7 +260,7 @@ const Announcements = (() => {
 
     function dismissBanner(banner, id) {
         banner.classList.add('hidden');
-        dismissOnServer(id);
+        addLocalDismissed(id);
     }
 
     // ── Full-screen popup overlay ─────────────────────────────────
@@ -287,7 +292,7 @@ const Announcements = (() => {
         const doClose = () => {
             overlay.classList.add('popup-exit');
             setTimeout(() => overlay.remove(), 400);
-            dismissOnServer(msg.id);
+            addLocalDismissed(msg.id);
         };
         closeBtn.addEventListener('click', doClose);
 
@@ -363,6 +368,26 @@ const Announcements = (() => {
         return id;
     }
 
+    // ── Locally-dismissed message tracking ────────────────────────
+    // Dismissed message IDs are stored in localStorage so they don't
+    // reappear after a page reload without requiring admin auth.
+    const DISMISSED_KEY = 'shelly-dismissed-msgs';
+    function getLocalDismissed() {
+        try {
+            const raw = localStorage.getItem(DISMISSED_KEY);
+            return new Set(JSON.parse(raw) ?? []);
+        } catch { return new Set(); }
+    }
+    function addLocalDismissed(id) {
+        try {
+            const set = getLocalDismissed();
+            set.add(id);
+            // Keep only the most recent 200 entries to avoid unbounded storage growth
+            const arr = Array.from(set).slice(-200);
+            localStorage.setItem(DISMISSED_KEY, JSON.stringify(arr));
+        } catch { /* storage unavailable */ }
+    }
+
     // ── Tell server a message was acknowledged ─────────────────────
     async function acknowledgeMessage(id) {
         try {
@@ -374,13 +399,6 @@ const Announcements = (() => {
         } catch (err) {
             console.warn('[Announcements] Acknowledge failed:', err.message);
         }
-    }
-
-    // ── Tell server a message was dismissed ────────────────────────
-    async function dismissOnServer(id) {
-        try {
-            await fetch(`/api/messages/${id}`, { method: 'DELETE', headers: { 'x-admin-password': '' } });
-        } catch { /* ok */ }
     }
 
     // ── ESTOP overlay (type-themed) ───────────────────────────────
@@ -484,6 +502,8 @@ const Announcements = (() => {
     function init() {
         // Don't poll if opened as a local file — admin API won't be there
         if (window.location.protocol === 'file:') return;
+        // Guard against duplicate init calls creating multiple intervals
+        if (pollTimer !== null) return;
         pollAll();
         pollTimer = setInterval(pollAll, POLL_MS);
     }

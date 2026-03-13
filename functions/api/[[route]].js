@@ -27,6 +27,7 @@ const KV_RELEASE_NOTES_KEY = 'release_notes';
 const KV_CUSTOM_FORECAST_KEY = 'custom_forecast';
 const KV_ARMAGEDDON_KEY = 'armageddon';
 const KV_MSG_SEQ_KEY = 'msg_next_id'; // persistent counter — never resets on message delete
+const KV_ACKS_KEY = 'msg_acks'; // { [msgId]: [visitorId, ...] }
 
 // ── Helpers ────────────────────────────────────────────────────────
 async function getMessages(env) {
@@ -57,6 +58,13 @@ async function getCustomForecasts(env) {
 }
 async function saveCustomForecasts(env, forecasts) {
     await env.WEATHERNOW_KV.put(KV_CUSTOM_FORECAST_KEY, JSON.stringify(forecasts));
+}
+
+async function getAcks(env) {
+    return (await env.WEATHERNOW_KV.get(KV_ACKS_KEY, 'json')) ?? {};
+}
+async function saveAcks(env, acks) {
+    await env.WEATHERNOW_KV.put(KV_ACKS_KEY, JSON.stringify(acks));
 }
 
 async function getArmageddonState(env) {
@@ -177,8 +185,11 @@ export async function onRequest({ request, env }) {
     // ── Messages ────────────────────────────────────────────────
     if (path === '/api/messages' && method === 'GET') {
         const since = parseInt(url.searchParams.get('since') ?? '0') || 0;
-        const msgs = await getMessages(env);
-        return json(msgs.filter(m => m.id > since));
+        const [msgs, acks] = await Promise.all([getMessages(env), getAcks(env)]);
+        return json(msgs.filter(m => m.id > since).map(m => ({
+            ...m,
+            ackCount: (acks[m.id] ?? []).length,
+        })));
     }
 
     // ── Poll (combined messages + armageddon in one request) ────
@@ -237,15 +248,36 @@ export async function onRequest({ request, env }) {
     if (oneMatch && method === 'DELETE') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
         const id = parseInt(oneMatch[1]);
-        const msgs = await getMessages(env);
+        const [msgs, acks] = await Promise.all([getMessages(env), getAcks(env)]);
         await saveMessages(env, msgs.filter(m => m.id !== id));
+        delete acks[id];
+        await saveAcks(env, acks);
         return json({ ok: true });
     }
 
     if (path === '/api/messages' && method === 'DELETE') {
         if (!checkAuth(request, env)) return json({ error: 'Unauthorized' }, 401);
-        await saveMessages(env, []);
+        await Promise.all([saveMessages(env, []), saveAcks(env, {})]);
         return json({ ok: true });
+    }
+
+    // ── Acknowledge ──────────────────────────────────────────────
+    // Public – no admin auth required. Body: { visitorId: string }
+    const ackMatch = path.match(/^\/api\/messages\/(\d+)\/acknowledge$/);
+    if (ackMatch && method === 'POST') {
+        const id = parseInt(ackMatch[1]);
+        let body;
+        try { body = await request.json(); } catch { return json({ error: 'invalid JSON body' }, 400); }
+        const { visitorId } = body;
+        if (!visitorId || typeof visitorId !== 'string' || visitorId.length > 128 || !/^[\w\-]+$/.test(visitorId)) {
+            return json({ error: 'visitorId must be alphanumeric with optional hyphens, max 128 characters' }, 400);
+        }
+        const [msgs, acks] = await Promise.all([getMessages(env), getAcks(env)]);
+        if (!msgs.find(m => m.id === id)) return json({ error: 'not found' }, 404);
+        if (!Array.isArray(acks[id])) acks[id] = [];
+        if (!acks[id].includes(visitorId)) acks[id].push(visitorId);
+        await saveAcks(env, acks);
+        return json({ ok: true, ackCount: acks[id].length });
     }
 
     // ── Push ────────────────────────────────────────────────────
