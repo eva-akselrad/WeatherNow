@@ -192,8 +192,9 @@ const Announcements = (() => {
                 armageddonActive = false;
                 armageddonVersion = null;
             }
-        } catch {
+        } catch (err) {
             if (window.location.protocol === 'file:') clearInterval(pollTimer);
+            console.warn('[Announcements] Poll failed:', err?.message ?? err);
         }
     }
 

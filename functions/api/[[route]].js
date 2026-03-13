@@ -19,6 +19,7 @@ const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-admin-password',
+    'Cache-Control': 'no-store',
 };
 
 const KV_MESSAGES_KEY = 'messages';
@@ -190,21 +191,6 @@ export async function onRequest({ request, env }) {
             ...m,
             ackCount: (acks[m.id] ?? []).length,
         })));
-    }
-
-    // ── Poll (combined messages + armageddon in one request) ────
-    if (path === '/api/poll' && method === 'GET') {
-        const since = parseInt(url.searchParams.get('since') ?? '0') || 0;
-        const [msgs, armageddon] = await Promise.all([getMessages(env), getArmageddonState(env)]);
-        let armState = armageddon;
-        if (armState?.expiresAt && Date.now() > armState.expiresAt) {
-            await saveArmageddonState(env, null);
-            armState = null;
-        }
-        return json({
-            messages: msgs.filter(m => m.id > since),
-            armageddon: armState ? { active: true, ...armState } : { active: false },
-        });
     }
 
     // ── Poll (combined messages + armageddon in one request) ────
